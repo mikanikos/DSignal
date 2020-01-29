@@ -81,7 +81,8 @@ func (signal *SignalHandler) Run() {
 	go signal.processDHMessages()
 	go signal.processRatchetMessages()
 
-	for i := 0; i < 3; i++ {
+	SignalPacketChannels = make(map[int]chan *SignalPacket)
+	for i := identityDH; i <= ratchet; i++ {
 		SignalPacketChannels[i] = make(chan *SignalPacket, maxChannelSize)
 	}
 
@@ -99,8 +100,16 @@ func (signal *SignalHandler) Run() {
 	}
 
 	go signal.listenForIncomingMessages(filterHash)
+	go signal.listenForClientMessages()
 
 }
+
+func (signal *SignalHandler) listenForClientMessages() {
+	for message := range gossiper.SignalChannel {
+		go signal.sendPrivateRatchet(message.Text, *message.Destination)
+	}
+}
+
 
 func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 
@@ -133,6 +142,7 @@ func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 					} else if packet.RatchetMessage != nil {
 						modeType = ratchet
 					} else {
+						fmt.Println("FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK")
 						continue
 					}
 
@@ -382,6 +392,7 @@ func (signal *SignalHandler) rStartX3DH(rIdentity *X3DHIdentity) {
 		Sign: rIdentity.Sign,
 	}
 
+	fmt.Println("rStart: printing identity")
 	fmt.Println(rIdentity)
 	//fmt.Println("IDENTITY - Origin: " + rIdentity.Origin + " IK: " + string(rIdentity.IK) + " SPK: " + string(rIdentity.SPK) + " OPK: " + string(*rIdentity.OPK) + " Sign: " + fmt.Sprint(rIdentity.Sign.R) + ":" + fmt.Sprint(rIdentity.Sign.S))
 
@@ -395,6 +406,7 @@ func (signal *SignalHandler) rStartX3DH(rIdentity *X3DHIdentity) {
 	//addressInTable, isPresent := signal.routingHandler.routingTable[rIdentity.Origin]
 	//signal.routingHandler.mutex.RUnlock()
 
+	fmt.Println("rStart: printing message")
 	fmt.Println(msg)
 	//fmt.Println("X3DH - IK: " + string(msg.IK) + " EK: " + string(msg.EK) + " OPK: " + string(*msg.OPK) + " PubKey: " + string(msg.RMessage.Header.PubKey) + " Pn:" + strconv.FormatInt(msg.RMessage.Header.Pn, 10) + " N: " + strconv.FormatInt(msg.RMessage.Header.N, 10))
 
@@ -424,7 +436,9 @@ func (signal *SignalHandler) sendPrivateRatchet(message, destination string) {
 		//if isPresent {
 		var bytes []byte
 		ratchetMessage := ratchetState.RatchetEncrypt(message, signal.g.Name, destination, bytes)
+		fmt.Println("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
 		fmt.Println(ratchetMessage)
+		fmt.Println("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
 		StoreRatchet(*ratchetState, signal.g.Name, destination)
 		signal.sendWhisperMessage(&SignalPacket{RatchetMessage: &ratchetMessage}, defaultTTL, destination)
 		//}

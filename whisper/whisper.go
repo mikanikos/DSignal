@@ -70,7 +70,7 @@ func (whisper *Whisper) SendEnvelope(envelope *Envelope) error {
 	err := whisper.handleEnvelope(&EnvelopeOrigin{Envelope: envelope, Origin: whisper.gossiper.ConnectionHandler.GossiperData.Address})
 	if err != nil {
 		fmt.Println(err)
-		return fmt.Errorf("failed to handle Envelope envelope")
+		return fmt.Errorf("failed to handle Envelope envelope, %s", err)
 	}
 	return err
 }
@@ -245,36 +245,39 @@ func (whisper *Whisper) handleEnvelope(envelopeOrigin *EnvelopeOrigin) error {
 
 	envelope := envelopeOrigin.Envelope
 
-	sent := envelope.Expiry - envelope.TTL
+	if envelopeOrigin.Origin != whisper.gossiper.ConnectionHandler.GossiperData.Address {
 
-	if sent > now {
-		if sent-DefaultSyncAllowance > now {
-			return fmt.Errorf("envelope created in the future")
+		sent := envelope.Expiry - envelope.TTL
+
+		if sent > now {
+			if sent-DefaultSyncAllowance > now {
+				return fmt.Errorf("envelope created in the future")
+			}
+			envelope.computePow(sent - now + 1)
 		}
-		envelope.computePow(sent - now + 1)
-	}
 
-	if envelope.Expiry < now {
-		if envelope.Expiry+DefaultSyncAllowance*2 < now {
-			return fmt.Errorf("very old message")
+		if envelope.Expiry < now {
+			if envelope.Expiry+DefaultSyncAllowance*2 < now {
+				return fmt.Errorf("very old message")
+			}
+			fmt.Println("expired envelope dropped")
+			return nil
 		}
-		fmt.Println("expired envelope dropped")
-		return nil
-	}
 
-	if uint32(envelope.GetSize()) > MaxMessageSize {
-		return fmt.Errorf("huge messages are not allowed")
-	}
-
-	if envelope.GetPow() < whisper.GetMinPow() {
-		if envelope.GetPow() < whisper.GetMinPowTolerated() {
-			return fmt.Errorf("envelope with low pow received: " + fmt.Sprint(envelope.GetPow()))
+		if uint32(envelope.GetSize()) > MaxMessageSize {
+			return fmt.Errorf("huge messages are not allowed")
 		}
-	}
 
-	if !CheckFilterMatch(whisper.GetBloomFilter(), envelope.GetBloom()) {
-		if !CheckFilterMatch(whisper.GetBloomFilterTolerated(), envelope.GetBloom()) {
-			return fmt.Errorf("envelope does not match bloom filter")
+		if envelope.GetPow() < whisper.GetMinPow() {
+			if envelope.GetPow() < whisper.GetMinPowTolerated() {
+				return fmt.Errorf("envelope with low pow received: " + fmt.Sprint(envelope.GetPow()))
+			}
+		}
+
+		if !CheckFilterMatch(whisper.GetBloomFilter(), envelope.GetBloom()) {
+			if !CheckFilterMatch(whisper.GetBloomFilterTolerated(), envelope.GetBloom()) {
+				return fmt.Errorf("envelope does not match bloom filter")
+			}
 		}
 	}
 
