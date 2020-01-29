@@ -5,9 +5,10 @@ import (
 	"strings"
 )
 
+// DEFAULTOPKN number of OPKs generated
 var DEFAULTOPKN = 10
 
-// Self Peer identity
+// SelfIdentity Peer identity
 type SelfIdentity struct {
 	IK   DHPair
 	SPK  DHPair
@@ -15,7 +16,7 @@ type SelfIdentity struct {
 	OPK []DHPair
 }
 
-// Self Peer identity compressed
+// SelfIdentityCompressed Peer identity compressed
 type SelfIdentityCompressed struct {
 	IKPrivKey []byte
 	IKPubKey []byte
@@ -26,14 +27,14 @@ type SelfIdentityCompressed struct {
 	OPK [][][]byte
 }
 
-// Any remote Peer identity
+// RemoteIdentity Any remote Peer identity
 type RemoteIdentity struct {
 	IK   EllipticPoint
 	SPK  EllipticPoint
 	Sign *ECDSA
 }
 
-// X3DH message
+// X3DHMessage message
 type X3DHMessage struct {
 	RMessage RatchetMessage
 	IK       []byte
@@ -41,7 +42,7 @@ type X3DHMessage struct {
 	OPK      *[]byte
 }
 
-// X3DH identity
+// X3DHIdentity identity
 type X3DHIdentity struct {
 	Origin      string
 	Destination string
@@ -52,7 +53,7 @@ type X3DHIdentity struct {
 	OPK         *[]byte
 }
 
-// Generate a new identity
+// GenerateIdentity a new identity
 func GenerateIdentity() *SelfIdentity {
 	IK := GenerateDH()
 	SPK := GenerateDH()
@@ -70,7 +71,7 @@ func GenerateIdentity() *SelfIdentity {
 	}
 }
 
-// Update my identity given X time
+// UpdateIdentity my identity given X time
 func (identity *SelfIdentity) UpdateIdentity() {
 	SPK := GenerateDH()
 
@@ -81,7 +82,7 @@ func (identity *SelfIdentity) UpdateIdentity() {
 	identity.Sign = Sign
 }
 
-// Initialize the X3DH protocol in sender side
+// SInitializeX3DH the X3DH protocol in sender side
 func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender, receiver string, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *X3DHMessage {
 	compressedSPK := Marshal(rIdentity.SPK.x, rIdentity.SPK.y)
 
@@ -135,7 +136,7 @@ func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender,
 	return &x3dhMessage
 }
 
-// Initialize X3DH protocol in receiver side
+// RInitializeX3DH X3DH protocol in receiver side
 func RInitializeX3DH(msg X3DHMessage, OPK *DHPair, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *string {
 	xIK, yIK, C := Unmarshal(msg.IK)
 	rIK := EllipticPoint{
@@ -182,7 +183,7 @@ func RInitializeX3DH(msg X3DHMessage, OPK *DHPair, selfIdentity *SelfIdentity, s
 	return &plainarray[1]
 }
 
-// Compress identity
+// CompressIdentity identity
 func CompressIdentity(selfIdentity SelfIdentity) SelfIdentityCompressed {
 	IKcompressed := CompressPoint(*selfIdentity.IK.PubKey)
 	SPKcompressed := CompressPoint(*selfIdentity.SPK.PubKey)
@@ -205,7 +206,7 @@ func CompressIdentity(selfIdentity SelfIdentity) SelfIdentityCompressed {
 	}
 }
 
-// Uncompress identity
+// UncompressIdentity identity
 func UncompressIdentity(compressed SelfIdentityCompressed) SelfIdentity {
 
 	IKPrivKey := PrivateKey { &compressed.IKPrivKey }

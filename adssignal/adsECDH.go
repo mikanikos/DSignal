@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-// Returns d,Q with d a 256 bits integer represented as a byte array and Q and elliptic curve point (dG with G the generator of the curve) with point compression
+// GenerateDH Returns d,Q with d a 256 bits integer represented as a byte array and Q and elliptic curve point (dG with G the generator of the curve) with point compression
 // represented as a byte array
 func GenerateDH() *DHPair {
 	p256 := elliptic.P256()
@@ -36,7 +36,7 @@ func GenerateDH() *DHPair {
 	return &dhPair
 }
 
-// Generate a 20 bytes quasi-identifier of a Peer 
+// GenerateAKA a 20 bytes quasi-identifier of a Peer 
 func GenerateAKA(pubKey EllipticPoint) []byte {
 	marshalPk := Marshal(pubKey.x, pubKey.y)
 	hash := sha256.Sum256(marshalPk)
@@ -44,7 +44,7 @@ func GenerateAKA(pubKey EllipticPoint) []byte {
 	return hash[12:32]
 }
 
-// Make a DH computation in a sense of res = integer * elliptic point
+// DH computation in a sense of res = integer * elliptic point
 func DH(dhPair DHPair, dhPubKey EllipticPoint) []byte {
 	Kx, Ky := (dhPubKey.C).ScalarMult(dhPubKey.x, dhPubKey.y, *dhPair.PrivKey.d)
 

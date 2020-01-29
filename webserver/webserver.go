@@ -12,18 +12,21 @@ import (
 	"github.com/mikanikos/DSignal/client/clientsender"
 	"github.com/mikanikos/DSignal/gossiper"
 	"github.com/mikanikos/DSignal/helpers"
+	"github.com/mikanikos/DSignal/adssignal"
 )
 
 // Webserver struct
 type Webserver struct {
 	Gossiper *gossiper.Gossiper
+	Signal 	 *adssignal.SignalHandler
 	Client   *clientsender.Client
 }
 
 // NewWebserver for gui, has the gossiper instance to get values to display in the ui and a client to communicate values to the gossiper using the standard protocol
-func NewWebserver(uiPort string, gossiper *gossiper.Gossiper) *Webserver {
+func NewWebserver(uiPort string, gossiper *gossiper.Gossiper, signal *adssignal.SignalHandler) *Webserver {
 	return &Webserver{
 		Gossiper: gossiper,
+		Signal: signal,
 		Client:   clientsender.NewClient(uiPort),
 	}
 }
@@ -45,6 +48,8 @@ func (webserver *Webserver) Run(portGUI string) {
 	r.HandleFunc("/round", webserver.getRoundHandler).Methods("GET")
 	r.HandleFunc("/bcLogs", webserver.getBCLogsHandler).Methods("GET")
 	r.HandleFunc("/blockchain", webserver.getBlockchainHandler).Methods("GET")
+	r.HandleFunc("/identity", webserver.getIdentityHandler).Methods("get")
+	r.HandleFunc("/signal", webserver.postSignalHandler).Methods("post")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./webserver"))))
 
@@ -63,7 +68,29 @@ func writeJSON(w http.ResponseWriter, payload interface{}) {
 	w.Write(bytes)
 }
 
-// get and display full blockchain
+
+// get and display signal log
+func (webserver *Webserver) getIdentityHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, webserver.Signal.GetIdentity())
+}
+
+
+// get and display signal log
+// send client message to gossiper with the arguments given
+func (webserver *Webserver) postSignalHandler(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	helpers.ErrorCheck(err, false)
+	if err != nil {
+		return
+	}
+
+	user := r.PostForm.Get("name")
+
+	var payload = webserver.Signal.GetRatchetMessages(user)
+	writeJSON(w, payload)	
+}
+
+// get and display full blockchain 
 func (webserver *Webserver) getBlockchainHandler(w http.ResponseWriter, r *http.Request) {
 	var payload = webserver.Gossiper.GetBlockchain()
 	writeJSON(w, payload)

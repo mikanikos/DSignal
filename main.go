@@ -58,7 +58,7 @@ func main() {
 
 	// if gui port specified, create and run the web server (if not, avoid waste of resources for performance reasons)
 	if *guiPort != "" {
-		ws := webserver.NewWebserver(*uiPort, g)
+		ws := webserver.NewWebserver(*uiPort, g, s)
 		go ws.Run(*guiPort)
 	}
 

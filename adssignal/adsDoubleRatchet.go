@@ -12,7 +12,7 @@ import (
 	"github.com/mikanikos/DSignal/helpers"
 )
 
-// Ratchet State one per connection
+// DRatchetState State one per connection
 type DRatchetState struct {
 	Peer string
 	DHs      *DHPair
@@ -24,6 +24,7 @@ type DRatchetState struct {
 	MKSKIPPED map[string][]byte
 }
 
+// DRatchetStateCompressed ratchet compressed
 type DRatchetStateCompressed struct {
 	Peer string
 	DHsPrivKey,	DHsPubKey	[]byte
@@ -35,18 +36,19 @@ type DRatchetStateCompressed struct {
 	MKSKIPPED map[string][]byte
 }
 
-var signalFolder = "_SignalFolder/"
+// RatchetFile const
 var RatchetFile = "Ratchet.txt"
 var ratchetHopLimit = 10
-var MAX_SKIP = 10
+// MaxSkip const
+var MaxSkip = 10
 
-// Ratchet ciphertext
+// RatchetCipher ciphertext
 type RatchetCipher struct {
 	Ad   []byte
 	Ciph []byte
 }
 
-// Ratchet header
+// RatchetHeader header
 type RatchetHeader struct {
 	PubKey      []byte
 	Pn          int64
@@ -56,13 +58,13 @@ type RatchetHeader struct {
 	HopLimit    uint32
 }
 
-// Ratchet message with both the cipher and the header
+// RatchetMessage with both the cipher and the header
 type RatchetMessage struct {
 	Header  RatchetHeader
 	Message RatchetCipher
 }
 
-// Initialize ratchet in the sending member
+// SInitializeRatchet ratchet in the sending member
 func (state *DRatchetState) SInitializeRatchet(SK []byte, pubKey *EllipticPoint, peer string) {
 	state.Peer = peer
 	state.DHs = GenerateDH()
@@ -75,7 +77,7 @@ func (state *DRatchetState) SInitializeRatchet(SK []byte, pubKey *EllipticPoint,
 	state.MKSKIPPED = make(map[string][]byte)
 }
 
-// Initialize ratchet in the receiving member
+// RInitializeRatchet ratchet in the receiving member
 func (state *DRatchetState) RInitializeRatchet(SK []byte, dhPair *DHPair) {
 	state.DHs = dhPair
 	state.DHr = nil
@@ -88,7 +90,7 @@ func (state *DRatchetState) RInitializeRatchet(SK []byte, dhPair *DHPair) {
 	state.MKSKIPPED = make(map[string][]byte)
 }
 
-// Encrypt using the ratchet state
+// RatchetEncrypt using the ratchet state
 func (state *DRatchetState) RatchetEncrypt(plaintext, origin, destination string, AD []byte) RatchetMessage {
 	var mk *[]byte
 	state.CKs, mk = KdfCK(*state.CKs)
@@ -105,7 +107,7 @@ func (state *DRatchetState) RatchetEncrypt(plaintext, origin, destination string
 	}
 }
 
-// Decrypt using the ratchet state
+// RatchetDecrypt using the ratchet state
 func (state *DRatchetState) RatchetDecrypt(header RatchetHeader, cipher RatchetCipher) *string {
 	plaintext := state.TrySkippedMessageKeys(header, cipher)
 
@@ -132,6 +134,7 @@ func (state *DRatchetState) RatchetDecrypt(header RatchetHeader, cipher RatchetC
 	return DecryptAEAD(*mk, cipher, header)
 }
 
+// TrySkippedMessageKeys try out of order keys
 func (state *DRatchetState) TrySkippedMessageKeys(header RatchetHeader, cipher RatchetCipher) *string {
 
 	dhr := UncompressPoint(header.PubKey)
@@ -146,8 +149,9 @@ func (state *DRatchetState) TrySkippedMessageKeys(header RatchetHeader, cipher R
 	return nil
 }
 
+// SkipMessageKeys skip keys out of order
 func (state *DRatchetState) SkipMessageKeys(until int64) {
-	if state.Nr + int64(MAX_SKIP) < until {
+	if state.Nr + int64(MaxSkip) < until {
 		fmt.Println("Too many skipped keys error")
 	}
 
@@ -161,7 +165,7 @@ func (state *DRatchetState) SkipMessageKeys(until int64) {
 	}
 }
 
-// Make a step of Diffie-Hellman Ratchet
+// DHRatchet a step of Diffie-Hellman Ratchet
 func (state *DRatchetState) DHRatchet(header RatchetHeader) {
 	state.PN = state.Ns
 	state.Ns = 0
@@ -179,7 +183,7 @@ func (state *DRatchetState) DHRatchet(header RatchetHeader) {
 	state.RK, state.CKs = KdfRK(*state.RK, DH(*state.DHs, *state.DHr))
 }
 
-// Compose the Ratchet Header
+// ComposeRatchetHeader the Ratchet Header
 func ComposeRatchetHeader(dhPair DHPair, pn, n int64, origin, destination string) RatchetHeader {
 	pubKey := Marshal((*dhPair.PubKey).x, (*dhPair.PubKey).y)
 	return RatchetHeader{
@@ -192,7 +196,7 @@ func ComposeRatchetHeader(dhPair DHPair, pn, n int64, origin, destination string
 	}
 }
 
-// Store a new ratchet
+// StoreRatchet a new ratchet
 func StoreRatchet(ratchet DRatchetState, origin, destination string) {
 	tmpRatchet := CompressRatchet(ratchet)
 
@@ -225,7 +229,7 @@ func StoreRatchet(ratchet DRatchetState, origin, destination string) {
 	}
 }
 
-// Retrieve the ratchet
+// RetrieveRatchet the ratchet
 func RetrieveRatchet(name string) *DRatchetState {
 	file, err := os.Open(signalFolder + name)
     if err != nil {
@@ -251,7 +255,7 @@ func RetrieveRatchet(name string) *DRatchetState {
 	return &ratchet
 }
 
-// Compress ratchet state
+// CompressRatchet ratchet state
 func CompressRatchet(ratchet DRatchetState) DRatchetStateCompressed {
 	DHsCompressed := CompressPoint(*ratchet.DHs.PubKey)
 	DHrCompressed := CompressPoint(*ratchet.DHr)
@@ -271,7 +275,7 @@ func CompressRatchet(ratchet DRatchetState) DRatchetStateCompressed {
 	}
 }
 
-// Uncompress ratchet state
+// UncompressRatchet ratchet state
 func UncompressRatchet(compressed DRatchetStateCompressed) DRatchetState {
 	DHsPrivKey := PrivateKey { &compressed.DHsPrivKey }
 	DHsPubKey := UncompressPoint(compressed.DHsPubKey)

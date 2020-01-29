@@ -7,15 +7,18 @@ import (
 
 	"golang.org/x/crypto/hkdf"
 )
-
-// KDF constants
+// InfoKDF constant
 const InfoKDF = "ADS_DSE_2019_KDF"
+// InfoAEAD constant
 const InfoAEAD = "SDA_2019_AES_DSE"
+// InfoX3DH constant
 const InfoX3DH = "DSA_XDH_DSE_2019"
+// MsgKeyInput constant
 const MsgKeyInput = "1"
+// ChainKeyInput constant
 const ChainKeyInput = "2"
 
-// Derivate a new pair of keys from the root key and the ouput of DH
+// KdfRK Derivate a new pair of keys from the root key and the ouput of DH
 func KdfRK(rk []byte, dhOut []byte) (*[]byte, *[]byte) {
 	sha256 := sha256.New
 
@@ -34,7 +37,7 @@ func KdfRK(rk []byte, dhOut []byte) (*[]byte, *[]byte) {
 	return &rootKey, &chainKey
 }
 
-// Derivate a new pair of keys from a given sending/receiving key
+// KdfCK Derivate a new pair of keys from a given sending/receiving key
 func KdfCK(ck []byte) (*[]byte, *[]byte) {
 	chainKey := NewHMAC([]byte(ChainKeyInput), ck)
 	messageKey := NewHMAC([]byte(MsgKeyInput), ck)
@@ -42,7 +45,7 @@ func KdfCK(ck []byte) (*[]byte, *[]byte) {
 	return &chainKey, &messageKey
 }
 
-// Derivate a new key from input and key
+// NewHMAC Derivate a new key from input and key
 func NewHMAC(input, key []byte) []byte {
 	sha256 := sha256.New
 
@@ -51,7 +54,7 @@ func NewHMAC(input, key []byte) []byte {
 	return mac.Sum(nil)
 }
 
-// Derivate new keys for AEAD given a message key
+// KdfAEAD Derivate new keys for AEAD given a message key
 func KdfAEAD(mk []byte) ([]byte, []byte, []byte) {
 	sha256 := sha256.New
 
@@ -74,7 +77,7 @@ func KdfAEAD(mk []byte) ([]byte, []byte, []byte) {
 	return encryptionKey, authenticationKey, IV
 }
 
-// Derivate a new key for X3DH
+// KdfX3DH Derivate a new key for X3DH
 func KdfX3DH(km []byte) []byte {
 	sha256 := sha256.New
 

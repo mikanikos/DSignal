@@ -2,24 +2,26 @@ package adssignal
 
 import (
 	"encoding/json"
+	"encoding/hex"
+	"sync"
+	"time"
 	"fmt"
-	"github.com/dedis/protobuf"
-	"github.com/mikanikos/DSignal/gossiper"
-	"github.com/mikanikos/DSignal/storage"
-	"github.com/mikanikos/DSignal/whisper"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	"sync"
-	"time"
-
+	
+	"github.com/dedis/protobuf"
+	"github.com/mikanikos/DSignal/gossiper"
+	"github.com/mikanikos/DSignal/storage"
+	"github.com/mikanikos/DSignal/whisper"
 	"github.com/mikanikos/DSignal/helpers"
 )
 
 const (
+	signalFolder 	   = "_SignalFolder/"
 	identityFile       = "Identity.txt"
-	identityTimeout    = 1
+	identityTimeout    = 3
 	hopLimit           = 10
 	maxChannelSize     = 1024
 	defaultTTL         = 300
@@ -40,9 +42,10 @@ type SignalPacket struct {
 	RatchetMessage *RatchetMessage
 }
 
+// SignalPacketChannels map of signal packets
 var SignalPacketChannels map[int]chan *SignalPacket
 
-// Signal structure including self identity, state table, identity channels and a mutex
+// SignalHandler structure including self identity, state table, identity channels and a mutex
 type SignalHandler struct {
 	w                *whisper.Whisper
 	g                *gossiper.Gossiper
@@ -50,11 +53,13 @@ type SignalHandler struct {
 	selfIdentity     SelfIdentity
 	stateTable       map[string]*DRatchetState
 	identityChannels sync.Map
+	latestMessages map[string][]gossiper.RumorMessage
+	identityStr 	 string
 
 	mutex sync.RWMutex
 }
 
-// Create a new handler
+// NewSignalHandler Create a new handler
 func NewSignalHandler(name string, g *gossiper.Gossiper, w *whisper.Whisper, ds *storage.DStore) *SignalHandler {
 	identity := retrieveIdentity(name)
 	states := make(map[string]*DRatchetState)
@@ -66,16 +71,21 @@ func NewSignalHandler(name string, g *gossiper.Gossiper, w *whisper.Whisper, ds 
 		retrieveRatchets(name, states)
 	}
 
-	return &SignalHandler{
+	signalHandler :=  &SignalHandler{
 		g: g,
 		w: w,
 		ds: ds,
 		selfIdentity:     *identity,
 		stateTable:       states,
 		identityChannels: sync.Map{},
+		latestMessages: make(map[string][]gossiper.RumorMessage),
 	}
+	signalHandler.identityStr = identityMessageSelf(*identity)
+
+	return signalHandler
 }
 
+// Run the signal handler
 func (signal *SignalHandler) Run() {
 	go signal.processIdentityMessages()
 	go signal.processDHMessages()
@@ -101,7 +111,6 @@ func (signal *SignalHandler) Run() {
 
 	go signal.listenForIncomingMessages(filterHash)
 	go signal.listenForClientMessages()
-
 }
 
 func (signal *SignalHandler) listenForClientMessages() {
@@ -142,7 +151,7 @@ func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 					} else if packet.RatchetMessage != nil {
 						modeType = ratchet
 					} else {
-						fmt.Println("FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK")
+						fmt.Println("¿?")
 						continue
 					}
 
@@ -216,8 +225,6 @@ func (signal *SignalHandler) processRatchetMessages() {
 // process x3dh message
 func (signal *SignalHandler) processDHMessages() {
 	for packet := range SignalPacketChannels[messageDH] {
-
-		//gossiper.routingHandler.updateRoutingTable(extPacket.Packet.X3DHMessage.RMessage.Header.Destination, "", 0, extPacket.SenderAddr)
 
 		if packet.X3DHMessage.RMessage.Header.Destination == signal.g.Name {
 
@@ -326,22 +333,8 @@ func (signal *SignalHandler) sStartX3DH(user, message *string) {
 // Send a new identity and wait for a X3DHMessage reply
 func (signal *SignalHandler) sendIdentity(identityMsg X3DHIdentity, OPK DHPair, message *string) bool {
 
-	//addr := address
-	//str := ""
-	//if identityMsg.Destination != "" {
-	//	signal.routingHandler.mutex.RLock()
-	//	addressInTable, isPresent := signal.routingHandler.routingTable[identityMsg.Destination]
-	//	signal.routingHandler.mutex.RUnlock()
-	//
-	//	if isPresent {
-	//		addr = addressInTable
-	//		str = identityMsg.Destination
-	//	}
-	//} else {
-	//	str = address.IP.String() + ":" + strconv.Itoa(address.Port)
-	//}
-
-	fmt.Println("IDENTITY - Origin: " + identityMsg.Origin + " IK: " + string(identityMsg.IK) + " SPK: " + string(identityMsg.SPK) + " OPK: " + string(*identityMsg.OPK) + " Sign: " + fmt.Sprint(identityMsg.Sign.R) + ":" + fmt.Sprint(identityMsg.Sign.S))
+	mes := "\nSignal: Starting X3DH with " + identityMsg.Destination + " using OPK:" + hex.EncodeToString(*identityMsg.OPK) 
+	fmt.Println(mes)
 
 	value, _ := signal.identityChannels.LoadOrStore(gossiper.GetKeyFromString(identityMsg.Destination), make(chan *X3DHMessage))
 	replyChan := value.(chan *X3DHMessage)
@@ -355,12 +348,24 @@ func (signal *SignalHandler) sendIdentity(identityMsg X3DHIdentity, OPK DHPair, 
 	for {
 		select {
 		case replyPacket := <-replyChan:
+			requestTimer.Stop()
+
+			mes = "\nSignal: X3DHMessage from " + replyPacket.RMessage.Header.Origin + " including IK:" + hex.EncodeToString(replyPacket.IK) 
+			mes = mes + " EK:" + hex.EncodeToString(replyPacket.EK) + " OPK:" + hex.EncodeToString(*replyPacket.OPK) 
+			fmt.Println(mes)
+
 			signal.mutex.Lock()
 			res := RInitializeX3DH(*replyPacket, &OPK, &signal.selfIdentity, signal.stateTable)
 			signal.mutex.Unlock()
 
 			// Send the original message upon both ratchet initialized
 			if *res == signal.g.Name && message != nil {
+				mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + replyPacket.RMessage.Header.Origin + " and new public key" + hex.EncodeToString(replyPacket.RMessage.Header.PubKey) 
+				fmt.Println(mes)
+
+				mes = "\nSignal: Make a Symmetric Ratchet receive step with " + replyPacket.RMessage.Header.Origin + " and decipher " + *res
+				fmt.Println(mes)
+				
 				signal.sendPrivateRatchet(*message, replyPacket.RMessage.Header.Origin)
 				return true
 			}
@@ -392,9 +397,9 @@ func (signal *SignalHandler) rStartX3DH(rIdentity *X3DHIdentity) {
 		Sign: rIdentity.Sign,
 	}
 
-	fmt.Println("rStart: printing identity")
-	fmt.Println(rIdentity)
-	//fmt.Println("IDENTITY - Origin: " + rIdentity.Origin + " IK: " + string(rIdentity.IK) + " SPK: " + string(rIdentity.SPK) + " OPK: " + string(*rIdentity.OPK) + " Sign: " + fmt.Sprint(rIdentity.Sign.R) + ":" + fmt.Sprint(rIdentity.Sign.S))
+	mes := "\nSignal: New identity from" +  rIdentity.Origin + " including IK:" + hex.EncodeToString(rIdentity.IK) 
+	mes = mes + " SPK:" + hex.EncodeToString(rIdentity.SPK) + " OPK:" + hex.EncodeToString(*rIdentity.OPK) + " Signature:" + hex.EncodeToString(rIdentity.Sign.R) + "-" + hex.EncodeToString(rIdentity.Sign.S)
+	fmt.Println(mes)
 
 	opk := UncompressPoint(*rIdentity.OPK)
 
@@ -402,21 +407,13 @@ func (signal *SignalHandler) rStartX3DH(rIdentity *X3DHIdentity) {
 	msg := SInitializeX3DH(remoteIdentity, &opk, signal.g.Name, rIdentity.Origin, &signal.selfIdentity, signal.stateTable)
 	signal.mutex.Unlock()
 
-	//signal.routingHandler.mutex.RLock()
-	//addressInTable, isPresent := signal.routingHandler.routingTable[rIdentity.Origin]
-	//signal.routingHandler.mutex.RUnlock()
+	mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + rIdentity.Origin + " using identity"
+	fmt.Println(mes)
 
-	fmt.Println("rStart: printing message")
-	fmt.Println(msg)
-	//fmt.Println("X3DH - IK: " + string(msg.IK) + " EK: " + string(msg.EK) + " OPK: " + string(*msg.OPK) + " PubKey: " + string(msg.RMessage.Header.PubKey) + " Pn:" + strconv.FormatInt(msg.RMessage.Header.Pn, 10) + " N: " + strconv.FormatInt(msg.RMessage.Header.N, 10))
+	mes = "\nSignal: Continuing X3DH with " + rIdentity.Origin + " using OPK:" + hex.EncodeToString(*rIdentity.OPK) 
+	fmt.Println(mes)
 
 	signal.sendWhisperMessage(&SignalPacket{X3DHMessage: msg}, defaultTTL, rIdentity.Origin)
-
-	//if isPresent {
-	//	signal.ConnectionHandler.SendPacket(&gossiper.GossipPacket{X3DHMessage: msg}, addressInTable)
-	//}
-
-	// maybe retry
 }
 
 // Check if I have an initialized ratchet for a given peer
@@ -430,18 +427,15 @@ func (signal *SignalHandler) haveRatchet(destination string) (*DRatchetState, bo
 func (signal *SignalHandler) sendPrivateRatchet(message, destination string) {
 	ratchetState, hasRatchet := signal.haveRatchet(destination)
 	if hasRatchet {
-		//signal.routingHandler.mutex.RLock()
-		//addressInTable, isPresent := signal.routingHandler.routingTable[destination]
-		//signal.routingHandler.mutex.RUnlock()
-		//if isPresent {
 		var bytes []byte
 		ratchetMessage := ratchetState.RatchetEncrypt(message, signal.g.Name, destination, bytes)
-		fmt.Println("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
-		fmt.Println(ratchetMessage)
-		fmt.Println("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
+		
+		mes := "\nSignal: Make a Symmetric Ratchet sending step with " + destination + " and sending id " + fmt.Sprint(ratchetMessage.Header.N)
+		fmt.Println(mes)
+
 		StoreRatchet(*ratchetState, signal.g.Name, destination)
+		signal.latestMessages[destination] = append(signal.latestMessages[destination], gossiper.RumorMessage{ signal.g.Name, uint32(ratchetMessage.Header.N), message })
 		signal.sendWhisperMessage(&SignalPacket{RatchetMessage: &ratchetMessage}, defaultTTL, destination)
-		//}
 	} else {
 		signal.sStartX3DH(&destination, &message)
 	}
@@ -449,15 +443,29 @@ func (signal *SignalHandler) sendPrivateRatchet(message, destination string) {
 
 // Receive a new private message commit from a ratchet
 func (signal *SignalHandler) receivePrivateRatchet(ratchetMessage RatchetMessage) *string {
+	mes := "\nSignal: Received new Ratchet message from " + ratchetMessage.Header.Origin 
+	fmt.Println(mes)
+
 	ratchetState, hasRatchet := signal.haveRatchet(ratchetMessage.Header.Origin)
 
 	if hasRatchet {
 		plaintext := ratchetState.RatchetDecrypt(ratchetMessage.Header, ratchetMessage.Message)
-		StoreRatchet(*ratchetState, signal.g.Name, ratchetMessage.Header.Origin)
+
+		if plaintext != nil {
+			mes = "\nSignal: Make a Diffie-Hellman Ratchet step with " + ratchetMessage.Header.Origin + " and public key " + hex.EncodeToString(ratchetMessage.Header.PubKey)
+			fmt.Println(mes)
+			mes = "\nSignal: Make a Symmetric Ratchet receving step with " + ratchetMessage.Header.Origin + ", receiving id " + fmt.Sprint(ratchetMessage.Header.N) + " and decipher " + *plaintext
+			fmt.Println(mes)
+
+			signal.latestMessages[ratchetMessage.Header.Origin] = append(signal.latestMessages[ratchetMessage.Header.Origin], gossiper.RumorMessage{ ratchetMessage.Header.Origin, uint32(ratchetMessage.Header.N), *plaintext })
+
+			StoreRatchet(*ratchetState, signal.g.Name, ratchetMessage.Header.Origin)
+		}
+
 		return plaintext
-	} else {
-		return nil
 	}
+		
+	return nil
 }
 
 // Retrieve stored ratchets
@@ -480,4 +488,23 @@ func retrieveRatchets(name string, states map[string]*DRatchetState) {
 		ratchet = RetrieveRatchet(n)
 		states[ratchet.Peer] = ratchet
 	}
+}
+
+func identityMessageSelf(selfIdentity SelfIdentity) string {
+	compressed := CompressIdentity(selfIdentity)
+	message := "$IK%:" + hex.EncodeToString(compressed.IKPubKey) + "$SPK%:" + hex.EncodeToString(compressed.SPKPubKey)
+	message = message + "$Signature%:" + hex.EncodeToString(compressed.R) + "-" + hex.EncodeToString(compressed.S)
+	message = message + "$OPK%:" + hex.EncodeToString(compressed.OPK[0][1]) + "..."
+
+	return message
+}
+
+// GetRatchetMessages util
+func  (signal *SignalHandler) GetRatchetMessages(user string) []gossiper.RumorMessage {
+	return signal.latestMessages[user]
+}
+
+// GetIdentity util
+func  (signal *SignalHandler) GetIdentity() string {
+	return signal.identityStr
 }

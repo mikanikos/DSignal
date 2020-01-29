@@ -8,13 +8,13 @@ import (
 	"math/big"
 )
 
-// Signature representation
+// ECDSA Signature representation
 type ECDSA struct {
 	R []byte
 	S []byte
 }
 
-// Generate a new signature of message using the private key
+// GenerateSignature a new signature of message using the private key
 func GenerateSignature(message []byte, sk *PrivateKey, pk EllipticPoint) *ECDSA {
 	privateKey := ConvertKey(sk, pk)
 	hash := sha256.Sum256(message)
@@ -31,7 +31,7 @@ func GenerateSignature(message []byte, sk *PrivateKey, pk EllipticPoint) *ECDSA 
 	}
 }
 
-// Verify the given signature given the message and the public key
+// VerifySignature the given signature given the message and the public key
 func VerifySignature(message []byte, sign ECDSA, pk EllipticPoint) bool {
 	privateKey := ConvertKey(nil, pk)
 	hash := sha256.Sum256(message)
@@ -39,7 +39,7 @@ func VerifySignature(message []byte, sign ECDSA, pk EllipticPoint) bool {
 	return ecdsa.Verify(&privateKey.PublicKey, hash[:], new(big.Int).SetBytes(sign.R), new(big.Int).SetBytes(sign.S))
 }
 
-// Convert a DH key pair in a edcsa valid key pair
+// ConvertKey a DH key pair in a edcsa valid key pair
 func ConvertKey(sk *PrivateKey, pk EllipticPoint) *ecdsa.PrivateKey {
 	pubKey := ecdsa.PublicKey{
 		Curve: pk.C,

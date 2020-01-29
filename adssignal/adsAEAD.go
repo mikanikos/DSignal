@@ -9,10 +9,10 @@ import (
 	"log"
 )
 
-// AES_BLOCK Size of AES block in bytes
-const AES_BLOCK = 16
+// AESBlock Size of AES block in bytes
+const AESBlock = 16
 
-// Encrypt AEAD the plaintext plaintext including the aditional data ad using the key mk
+// EncryptAEAD the plaintext plaintext including the aditional data ad using the key mk
 func EncryptAEAD(mk []byte, plaintext string, ad []byte) RatchetCipher {
 	// Derivate the key
 	encryptionKey, authenticationKey, IV := KdfAEAD(mk)
@@ -40,7 +40,7 @@ func EncryptAEAD(mk []byte, plaintext string, ad []byte) RatchetCipher {
 
 	// Get the tag and append to cipher
 	tag := NewHMAC(adSadLen, authenticationKey)
-	chiper := append(S, tag[:AES_BLOCK]...)
+	chiper := append(S, tag[:AESBlock]...)
 
 	// Return both
 	ratchetCipher := RatchetCipher{
@@ -51,7 +51,7 @@ func EncryptAEAD(mk []byte, plaintext string, ad []byte) RatchetCipher {
 	return ratchetCipher
 }
 
-// Decrypt AEAD the ciphertext cipher including the header header using the key mk
+// DecryptAEAD the ciphertext cipher including the header header using the key mk
 func DecryptAEAD(mk []byte, ciph RatchetCipher, header RatchetHeader) *string {
 	// Derivate the key
 	encryptionKey, authenticationKey, IV := KdfAEAD(mk)
@@ -63,8 +63,8 @@ func DecryptAEAD(mk []byte, ciph RatchetCipher, header RatchetHeader) *string {
 
 	// Get cipher and tag
 	ad := Concat(ciph.Ad, header)
-	ciphertext := ciph.Ciph[:len(ciph.Ciph)-AES_BLOCK]
-	expectedTag := ciph.Ciph[len(ciph.Ciph)-AES_BLOCK:]
+	ciphertext := ciph.Ciph[:len(ciph.Ciph)-AESBlock]
+	expectedTag := ciph.Ciph[len(ciph.Ciph)-AESBlock:]
 
 	// Parse the additional data
 	adLen := len(ad)
@@ -94,12 +94,12 @@ func DecryptAEAD(mk []byte, ciph RatchetCipher, header RatchetHeader) *string {
 // Padd plaintext to AES block length
 func padd(plaintext []byte) []byte {
 	paddedPt := plaintext
-	lastBlockLen := len(plaintext) % AES_BLOCK
+	lastBlockLen := len(plaintext) % AESBlock
 
-	paddLen := AES_BLOCK - lastBlockLen
+	paddLen := AESBlock - lastBlockLen
 
 	if paddLen == 0 {
-		paddLen = AES_BLOCK
+		paddLen = AESBlock
 	}
 
 	bs := make([]byte, 2)
@@ -129,7 +129,7 @@ func unpadd(plaintext []byte) []byte {
 	return plaintext
 }
 
-// Concatenate the header to the additional data
+// Concat the header to the additional data
 func Concat(ad []byte, header RatchetHeader) []byte {
 	var network bytes.Buffer
 	enc := gob.NewEncoder(&network)

@@ -8,29 +8,29 @@ import (
 // Defines the parameter for curve calculations
 var bigTHREE = big.NewInt(3)
 
-// The elliptic point representation
+// EllipticPoint representation
 type EllipticPoint struct {
 	C    elliptic.Curve
 	x, y *big.Int
 }
 
-// Private key representation
+// PrivateKey representation
 type PrivateKey struct {
 	d *[]byte
 }
 
-// A DH pair including private and public key
+// DHPair including private and public key
 type DHPair struct {
 	PubKey  *EllipticPoint
 	PrivKey *PrivateKey
 }
 
-// Compress a given point
+// CompressPoint a given point
 func CompressPoint(Q EllipticPoint) []byte {
 	return Marshal(Q.x, Q.y)
 }
 
-// Uncompress a given compressed point
+// UncompressPoint a given compressed point
 func UncompressPoint(data []byte) EllipticPoint {
 	x, y, C := Unmarshal(data)
 
@@ -85,7 +85,7 @@ func Unmarshal(data []byte) (x, y *big.Int, C elliptic.Curve) {
 	return x, y, curve
 }
 
-// Compare two given points
+// ComparePoints Compare two given points
 func ComparePoints(p1 EllipticPoint, p2 EllipticPoint) bool {
 	if p1.x.Cmp(p2.x) != 0 || p1.y.Cmp(p2.y) != 0 {
 		return false
@@ -94,7 +94,7 @@ func ComparePoints(p1 EllipticPoint, p2 EllipticPoint) bool {
 	return true
 }
 
-// Compute the square root a = sqrt(a) (mod curve_p) in the curve
+// ModSqrt Compute the square root a = sqrt(a) (mod curve_p) in the curve
 func ModSqrt(z *big.Int, curve elliptic.Curve, a *big.Int) *big.Int {
 	p1 := big.NewInt(1)
 	p1.Add(p1, curve.Params().P)

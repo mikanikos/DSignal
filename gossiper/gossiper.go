@@ -33,10 +33,6 @@ type Gossiper struct {
 	fileHandler *FileHandler
 	// handle abstractions for the blockchain (gossip with confirmation, tlc and qsc)
 	blockchainHandler *BlockchainHandler
-	//// handle signal option
-	//signalHandler *adssignal.SignalHandler
-	//// store handler
-	//storeHandler *storage.DStore
 }
 
 // NewGossiper constructor

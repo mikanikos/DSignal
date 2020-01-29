@@ -98,7 +98,7 @@ func (whisper *Whisper) Stop() error {
 // process incoming whisper status
 func (whisper *Whisper) processWhisperStatus() {
 	for extPacket := range gossiper.PacketChannels["whisperStatus"] {
-		fmt.Println("Got whisperStatus from " + extPacket.SenderAddr.String())
+		//fmt.Println("Got whisperStatus from " + extPacket.SenderAddr.String())
 		if _, loaded := whisper.blacklist[extPacket.SenderAddr.String()]; !loaded {
 			whisper.routingHandler.updateRoutingTable(extPacket.Packet.WhisperStatus, extPacket.SenderAddr)
 			whisper.gossiper.HandleGossipMessage(extPacket, extPacket.Packet.WhisperStatus.Origin, extPacket.Packet.WhisperStatus.ID)
@@ -109,7 +109,7 @@ func (whisper *Whisper) processWhisperStatus() {
 // process incoming whisper envelopes
 func (whisper *Whisper) processWhisperPacket() {
 	for extPacket := range gossiper.PacketChannels["whisperPacket"] {
-		fmt.Println("Got whisperPacket from " + extPacket.SenderAddr.String())
+		//fmt.Println("Got whisperPacket from " + extPacket.SenderAddr.String())
 		if _, loaded := whisper.blacklist[extPacket.SenderAddr.String()]; !loaded {
 
 			packet := extPacket.Packet.WhisperPacket
@@ -117,7 +117,7 @@ func (whisper *Whisper) processWhisperPacket() {
 			if packet.Code == messagesCode {
 				// decode the contained envelope
 
-				fmt.Println("Got envelope")
+				//fmt.Println("Got envelope")
 
 				envelope := &Envelope{}
 
@@ -230,8 +230,8 @@ func (whisper *Whisper) updateBloomFilter(f *Filter) {
 		aggregate = AggregateBloom(aggregate, b)
 	}
 
-	fmt.Println(whisper.GetBloomFilter())
-	fmt.Println(aggregate)
+	//fmt.Println(whisper.GetBloomFilter())
+	//fmt.Println(aggregate)
 
 	if !CheckFilterMatch(whisper.GetBloomFilter(), aggregate) {
 		aggregate = AggregateBloom(whisper.GetBloomFilter(), aggregate)
@@ -327,11 +327,11 @@ func (whisper *Whisper) updateEnvelopes() {
 	for {
 		select {
 		case <-expire.C:
-			fmt.Println("flushing")
+			//fmt.Println("flushing")
 			whisper.removeExpiredEnvelopes()
 
 		case <-transmit.C:
-			fmt.Println("broadcasting")
+			//fmt.Println("broadcasting")
 			whisper.broadcastMessages()
 
 		case <-whisper.quit:
