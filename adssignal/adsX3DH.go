@@ -1,0 +1,249 @@
+package adssignal
+
+import (
+	"fmt"
+	"strings"
+)
+
+var DEFAULTOPKN = 10
+
+// Self Peer identity
+type SelfIdentity struct {
+	IK   DHPair
+	SPK  DHPair
+	Sign *ECDSA
+	OPK []DHPair
+}
+
+// Self Peer identity compressed
+type SelfIdentityCompressed struct {
+	IKPrivKey []byte
+	IKPubKey []byte
+	SPKPrivKey []byte
+	SPKPubKey []byte
+	R []byte
+	S []byte
+	OPK [][][]byte
+}
+
+// Any remote Peer identity
+type RemoteIdentity struct {
+	IK   EllipticPoint
+	SPK  EllipticPoint
+	Sign *ECDSA
+}
+
+// X3DH message
+type X3DHMessage struct {
+	RMessage RatchetMessage
+	IK       []byte
+	EK       []byte
+	OPK      *[]byte
+}
+
+// X3DH identity
+type X3DHIdentity struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	IK          []byte
+	SPK         []byte
+	Sign        *ECDSA
+	OPK         *[]byte
+}
+
+// Generate a new identity
+func GenerateIdentity() *SelfIdentity {
+	IK := GenerateDH()
+	SPK := GenerateDH()
+
+	compressedSPK := Marshal(SPK.PubKey.x, SPK.PubKey.y)
+	Sign := GenerateSignature(compressedSPK, IK.PrivKey, *IK.PubKey)
+
+	var OPKS []DHPair
+	for i:=0; i<DEFAULTOPKN; i++ {
+		OPKS = append(OPKS, *GenerateDH())
+	}
+
+	return &SelfIdentity{
+		IK: *IK, SPK: *SPK, Sign: Sign, OPK: OPKS,
+	}
+}
+
+// Update my identity given X time
+func (identity *SelfIdentity) UpdateIdentity() {
+	SPK := GenerateDH()
+
+	compressedSPK := Marshal(SPK.PubKey.x, SPK.PubKey.y)
+	Sign := GenerateSignature(compressedSPK, identity.IK.PrivKey, *identity.IK.PubKey)
+
+	identity.SPK = *SPK
+	identity.Sign = Sign
+}
+
+// Initialize the X3DH protocol in sender side
+func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender, receiver string, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *X3DHMessage {
+	compressedSPK := Marshal(rIdentity.SPK.x, rIdentity.SPK.y)
+
+	if !VerifySignature(compressedSPK, *rIdentity.Sign, rIdentity.IK) {
+		fmt.Println("Signature verification error")
+		return nil
+	}
+	// Compute dh1, dh2, dh3, dh4 using own and remote identity's keys
+	EK := GenerateDH()
+
+	dh1 := DH(selfIdentity.IK, rIdentity.SPK)
+	dh2 := DH(*EK, rIdentity.IK)
+	dh3 := DH(*EK, rIdentity.SPK)
+
+	dhx := append(dh1, dh2...)
+	dhx = append(dhx, dh3...)
+
+	if oneTimePk != nil {
+		dh4 := DH(*EK, *oneTimePk)
+		dhx = append(dhx, dh4...)
+	}
+
+	SK := KdfX3DH(dhx)
+
+	rIKcompressed := Marshal(rIdentity.IK.x, rIdentity.IK.y)
+	sIKcompressed := Marshal(selfIdentity.IK.PubKey.x, selfIdentity.IK.PubKey.y)
+
+	AD := append(sIKcompressed, rIKcompressed...)
+	fmt.Println(AD)
+
+	EKcompressed := Marshal(EK.PubKey.x, EK.PubKey.y)
+
+	// Initialize the ratchet and create the X3DHMessage including a RatchetMessage
+	ratchetState := DRatchetState{}
+	ratchetState.SInitializeRatchet(SK, &rIdentity.SPK, receiver)
+	stateTable[receiver] = &ratchetState
+
+	ratchetMessage := ratchetState.RatchetEncrypt(sender+":"+receiver, sender, receiver, AD)
+	x3dhMessage := X3DHMessage{
+		ratchetMessage,
+		sIKcompressed,
+		EKcompressed,
+		nil,
+	}
+
+	if oneTimePk != nil {
+		oneTimePkcompressed := Marshal(oneTimePk.x, oneTimePk.y)
+		x3dhMessage.OPK = &oneTimePkcompressed
+	}
+
+	return &x3dhMessage
+}
+
+// Initialize X3DH protocol in receiver side
+func RInitializeX3DH(msg X3DHMessage, OPK *DHPair, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *string {
+	xIK, yIK, C := Unmarshal(msg.IK)
+	rIK := EllipticPoint{
+		C, xIK, yIK,
+	}
+
+	// Compute dh1, dh2, dh3, dh4 using own and remote identity's keys
+	xEK, yEK, C := Unmarshal(msg.EK)
+	rEK := EllipticPoint{
+		C, xEK, yEK,
+	}
+
+	dh1 := DH(selfIdentity.SPK, rIK)
+	dh2 := DH(selfIdentity.IK, rEK)
+	dh3 := DH(selfIdentity.SPK, rEK)
+
+	dhx := append(dh1, dh2...)
+	dhx = append(dhx, dh3...)
+
+	if msg.OPK != nil && OPK != nil {
+		dh4 := DH(*OPK, rEK)
+		dhx = append(dhx, dh4...)
+	}
+
+	SK := KdfX3DH(dhx)
+
+	// Initialize the ratchet and decrypt the message
+	ratchetState := DRatchetState{}
+	ratchetState.RInitializeRatchet(SK, &selfIdentity.SPK)
+
+	plaintext := ratchetState.RatchetDecrypt(msg.RMessage.Header, msg.RMessage.Message)
+
+	if plaintext == nil {
+		fmt.Println("Plaintext non decypted")
+		return nil
+	}
+
+	fmt.Println(*plaintext)
+
+	plainarray := strings.Split(*plaintext, ":")
+	ratchetState.Peer = plainarray[0]
+	stateTable[plainarray[0]] = &ratchetState
+
+	return &plainarray[1]
+}
+
+// Compress identity
+func CompressIdentity(selfIdentity SelfIdentity) SelfIdentityCompressed {
+	IKcompressed := CompressPoint(*selfIdentity.IK.PubKey)
+	SPKcompressed := CompressPoint(*selfIdentity.SPK.PubKey)
+
+	var OPK [][][]byte
+	var OPKpair [][]byte
+	for i:=0; i<DEFAULTOPKN; i++ {
+		OPKpair = [][]byte {*selfIdentity.OPK[i].PrivKey.d, CompressPoint(*selfIdentity.OPK[i].PubKey)}
+		OPK = append(OPK, OPKpair)
+	}
+
+	return SelfIdentityCompressed {
+		*selfIdentity.IK.PrivKey.d,
+		IKcompressed,
+		*selfIdentity.SPK.PrivKey.d,
+		SPKcompressed,
+		selfIdentity.Sign.R,
+		selfIdentity.Sign.S,
+		OPK,
+	}
+}
+
+// Uncompress identity
+func UncompressIdentity(compressed SelfIdentityCompressed) SelfIdentity {
+
+	IKPrivKey := PrivateKey { &compressed.IKPrivKey }
+	SPKPrivKey := PrivateKey { &compressed.SPKPrivKey }
+	IKPubKey := UncompressPoint(compressed.IKPubKey)
+	SPKPubKey := UncompressPoint(compressed.SPKPubKey)
+
+	IK := DHPair{
+		&IKPubKey,
+		&IKPrivKey,
+	}
+
+	SPK := DHPair{
+		&SPKPubKey,
+		&SPKPrivKey,
+	}
+
+	sign := ECDSA {
+		compressed.R,
+		compressed.S,
+	}
+
+	var OPK []DHPair
+	var OPKPrivKey PrivateKey
+	var OPKPubKey EllipticPoint
+	for i:=0; i<DEFAULTOPKN; i++ {
+		OPKPrivKey = PrivateKey { &compressed.OPK[i][0] }
+		OPKPubKey = UncompressPoint(compressed.OPK[i][1])
+		OPK = append(OPK, DHPair{
+			&OPKPubKey,
+			&OPKPrivKey,
+		})
+	}
+
+	return SelfIdentity {
+		IK,
+		SPK,
+		&sign,
+		OPK,
+	}
+}

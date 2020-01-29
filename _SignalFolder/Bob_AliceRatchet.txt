@@ -1,0 +1,1 @@
+{"Peer":"Bob","DHsPrivKey":"mbMVHJWs98uqElmuQVa0cMZm0Z+CSRxVq7XPEg8wZ4s=","DHsPubKey":"AzhXxLqJbVt4F76IAtOKjExJi+PMhrNdOpr0OIb8Vw9I","DHr":"At6MAiicSxY0W4e5ayItpY/51SwYlDmBAxWk6V71GIR1","RK":"wXWgsulo3vk4gRHufnggZ7W4qGljiLPSwzbqiQ8xpks=","CKs":"XFBTwm/QqhBkO1Y/BIal+WgD+zCjYNOukjxHIyNnpMk=","CKr":"qOOzE4jL54NuQFETDqMsDo8q1CdOUIgIX8S7uUEsSMU=","Ns":1,"Nr":1,"PN":0,"MKSKIPPED":{}}

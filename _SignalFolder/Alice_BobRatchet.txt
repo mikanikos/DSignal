@@ -1,0 +1,1 @@
+{"Peer":"Alice","DHsPrivKey":"6CFXLsERNlIRSSDmT5FN6nl/GSMgUNlZLszADQP3YNE=","DHsPubKey":"A2eVfQ0/ld0UIm3MJa4+C+7OjFYs8pMehRcWPB+wajxM","DHr":"AzhXxLqJbVt4F76IAtOKjExJi+PMhrNdOpr0OIb8Vw9I","RK":"c+BiJSpzadrKBGAuBcHqhRwgO4R06mpOobO6cENlm+g=","CKs":"Gj17OLoMxl/naeqAY96GUz+u7TKemffNRs94VY4wBxg=","CKr":"XFBTwm/QqhBkO1Y/BIal+WgD+zCjYNOukjxHIyNnpMk=","Ns":0,"Nr":1,"PN":1,"MKSKIPPED":{}}

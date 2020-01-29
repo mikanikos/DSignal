@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script type="text/javascript" src="js/scripts.js"></script>
+</head>
+
+<body>
+    <!-- display gossiper name -->
+    <h1 style="text-align: center" id="peerID">DSignal</h1>
+
+    <!-- display origin nodes, double click on one of them to send a private message -->
+    <div class="originBox"
+        style="float:left;height:65vh;width:20%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Origin Box</strong>
+            Double clink on an origin to send a private message
+        </label>
+        <ul id="originList" style="padding:10px;list-style:none;max-height:650px;overflow:auto;">
+        </ul>
+    </div>
+
+    <!-- display all messages here, even private ones, and make possible to send a new message -->
+    <div class="chatBox" style="float:left;height:65vh;width:50%;border:1px solid #bbb;margin:10px;position: relative;">
+        <label style="margin:10px;display:inline-block;">
+            <strong>Chat Box</strong>
+        </label>
+        <ul id="messageList" style="padding:10px;list-style:none;max-height:650px;overflow:auto;">
+        </ul>
+        <div style="position:absolute;bottom:0;width:100%">
+            <form id="sendForm" style="margin:10px;">
+                <input id="messageInput" type="text" placeholder="Write your message" style="width:80%" />
+                <button type="submit" style="width:10%;">Send</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- display peers known and make possible to add a new one -->
+    <div class="nodeBox" style="float:left;height:65vh;width:20%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Node Box</strong>
+        </label>
+        <ul id="peerList" style="padding:10px;list-style:none;max-height:650px;overflow:auto;">
+        </ul>
+        <div style="position:absolute;bottom:0;width:100%">
+            <form id="peerForm" style="margin:10px;">
+                <input id="peerInput" type="text" placeholder="IP:PORT" style="width:65%;" />
+                <button type="submit" style="width:25%;">Add</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- display files indexed and make possible to index a new file -->
+    <div class="fileBox" style="float:left;height:65vh;width:30%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>File Box</strong>
+        </label>
+        <ul id="fileList" style="margin:10px;padding:20px;list-style:disc;max-height:650px;overflow:auto;">
+        </ul>
+        <div style="position:absolute;bottom:0;width:100%;margin:10px;text-align:center;">
+            <button id="buttonFile" style="width:40%;">Share file</button>
+            <input type="file" id="fileInput" style="width:1%;">
+        </div>
+    </div>
+    
+    <!-- display downloaded files and make possible to download with a prompt -->
+    <div class="downloadBox"
+        style="float:left;height:65vh;width:30%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Download Box</strong>
+        </label>
+        <ul id="downloadList" style="margin:10px;padding:20px;list-style:disc;max-height:650px;overflow:auto;">
+        </ul>
+        <div style="position:absolute;bottom:0;width:100%;margin:10px;text-align:center;">
+            <button id="buttonDownloadFile" style="width:40%;">Download file</button>
+        </div>
+    </div>
+    
+    <!-- display search results and make possible to search with a prompt, download searched file by double click on a result -->
+    <div class="searchBox"
+        style="float:left;height:65vh;width:30%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Search Box</strong>
+            Double clink on a file to download it
+        </label>
+        <ul id="searchList" style="margin:10px;padding:20px;list-style:disc;max-height:650px;overflow:auto;">
+        </ul>
+        <div style="position:absolute;bottom:0;width:100%;margin:10px;text-align:center;">
+            <button id="buttonSearchFile" style="width:40%;">Search file</button>
+        </div>
+    </div>
+    
+    <!-- display current blockchain -->
+    <div class="blockchainBox"
+        style="float:left;height:65vh;width:30%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Blockchain Box</strong>
+        </label>
+        <ul id="blockchainList" style="margin:10px;padding:20px;list-style:disc;max-height:650px;overflow:auto;">
+        </ul>
+    </div>
+    
+    <!-- display blockchain logs -->
+    <div class="bcLogs"
+        style="float:left;height:65vh;width:30%;border:1px solid #bbb;margin:10px;position:relative;">
+        <label style="margin:10px;display:inline-block">
+            <strong>Blockchain Logs</strong>
+        </label>
+        <!-- display current round -->
+        <label id="round">Round: 0</label>
+        <ul id="bcLogsList" style="margin:10px;padding:20px;list-style:disc;max-height:650px;overflow:auto;">
+        </ul>
+    </div>
+</body>
+
+</html>
