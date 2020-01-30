@@ -22,7 +22,7 @@ import (
 const (
 	signalFolder 	   = "_SignalFolder/"
 	identityFile       = "Identity.txt"
-	identityTimeout    = 3
+	identityTimeout    = 5
 	hopLimit           = 10
 	maxChannelSize     = 1024
 	defaultTTL         = 300
@@ -117,13 +117,18 @@ func (signal *SignalHandler) Run() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	metaHash := signal.g.DstorageHandler.DStore.StoreFile(b, storage.HashTypeSha256, storage.TypeBasicFile)
-	fmt.Println("Identity metahash: " + hex.EncodeToString(metaHash))
+	fmt.Println("DStore: Identity metahash " + hex.EncodeToString(metaHash))
 }
 
 func (signal *SignalHandler) listenForClientMessages() {
 	for message := range gossiper.SignalChannel {
-		go signal.sendPrivateRatchet(message.Text, *message.Destination, *message.Identity)
+		if message.Identity != nil {
+			go signal.sendPrivateRatchet(message.Text, *message.Destination, *message.Identity)
+		} else {
+			go signal.sendPrivateRatchet(message.Text, *message.Destination, "")
+		}
 	}
 }
 
@@ -202,8 +207,6 @@ func (signal *SignalHandler) sendWhisperMessage(packet *SignalPacket, hop uint32
 func (signal *SignalHandler) processIdentityMessages() {
 	for packet := range SignalPacketChannels[identityDH] {
 
-		//signal.g.routingHandler.updateRoutingTable(extPacket.Packet.X3DHIdentity.Destination, "", 0, extPacket.SenderAddr)
-
 		if packet.X3DHIdentity.Destination == signal.g.Name {
 			go signal.rStartX3DH(packet.X3DHIdentity)
 		} else {
@@ -222,7 +225,7 @@ func (signal *SignalHandler) processRatchetMessages() {
 			msg := signal.receivePrivateRatchet(*packet.RatchetMessage)
 
 			if msg != nil {
-				fmt.Println("Ratchet Message: " + *msg)
+				fmt.Println("Signal: Ratchet Message " + *msg)
 			}
 		} else {
 			go signal.sendWhisperMessage(packet, defaultTTL, packet.RatchetMessage.Header.Destination)
@@ -245,7 +248,7 @@ func (signal *SignalHandler) processDHMessages() {
 					c <- d
 				}(channel, packet.X3DHMessage)
 			} else {
-				mes := "\nSignal: X3DHMessage from " + packet.X3DHMessage.RMessage.Header.Origin + " including IK:" + hex.EncodeToString(packet.X3DHMessage.IK) 
+				mes := "\nSignal DStore: X3DHMessage from " + packet.X3DHMessage.RMessage.Header.Origin + " including IK:" + hex.EncodeToString(packet.X3DHMessage.IK) 
 				mes = mes + " EK:" + hex.EncodeToString(packet.X3DHMessage.EK) + " OPK:" + hex.EncodeToString(*packet.X3DHMessage.OPK) 
 				fmt.Println(mes)
 
@@ -255,12 +258,19 @@ func (signal *SignalHandler) processDHMessages() {
 
 				// Send the original message upon both ratchet initialized
 				if res != nil {
-					mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + packet.X3DHMessage.RMessage.Header.Origin + " and new public key" + hex.EncodeToString(packet.X3DHMessage.RMessage.Header.PubKey) 
+					mes = "\nSignal DStore: Initialize Diffie-Hellman Ratchet with " + packet.X3DHMessage.RMessage.Header.Origin + " and new public key" + hex.EncodeToString(packet.X3DHMessage.RMessage.Header.PubKey) 
 					fmt.Println(mes)
 
-					mes = "\nSignal: Make a Symmetric Ratchet receive step with " + packet.X3DHMessage.RMessage.Header.Origin + " and decipher " + *res
+					mes = "\nSignal DStore: Make a Symmetric Ratchet receive step with " + packet.X3DHMessage.RMessage.Header.Origin + " and decipher " + *res
 					fmt.Println(mes)
+
+					signal.latestMessages[packet.X3DHMessage.RMessage.Header.Origin] = append(signal.latestMessages[packet.X3DHMessage.RMessage.Header.Origin], gossiper.RumorMessage{ packet.X3DHMessage.RMessage.Header.Origin, uint32(packet.X3DHMessage.RMessage.Header.N), *res })
 					
+					ratchetState, hasRatchet := signal.haveRatchet(packet.X3DHMessage.RMessage.Header.Origin)
+					if hasRatchet {
+						StoreRatchet(*ratchetState, signal.g.Name, packet.X3DHMessage.RMessage.Header.Origin)
+					}
+
 					continue
 				}
 
@@ -364,10 +374,10 @@ func (signal *SignalHandler) iStartX3DH(user, message *string, rIdentity RemoteI
 	res := SInitializeX3DH(rIdentity, &OPK, signal.g.Name, *user, &signal.selfIdentity, signal.stateTable, message)
 	signal.mutex.Unlock()
 
-	mes := "\nSignal: Starting X3DH with " + *user + " using OPK:" + hex.EncodeToString(CompressPoint(OPK)) 
+	mes := "\nSignal DStore: Starting X3DH with " + *user + " using OPK:" + hex.EncodeToString(CompressPoint(OPK)) 
 	fmt.Println(mes)
 
-	mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + *user + " using retrieved identity"
+	mes = "\nSignal DStore: Initialize Diffie-Hellman Ratchet with " + *user + " using retrieved identity"
 	fmt.Println(mes)
 
 	signal.sendWhisperMessage(&SignalPacket{X3DHMessage: res}, defaultTTL, *user)

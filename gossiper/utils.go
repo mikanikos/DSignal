@@ -46,6 +46,8 @@ func getTypeFromGossip(packet *GossipPacket) string {
 		return "whisperPacket"
 	} else if packet.WhisperStatus != nil {
 		return "whisperStatus"
+	} else if packet.DStoreMessage != nil {
+		return "dstorageMessage"
 	}
 
 	return "unknown"

@@ -97,7 +97,7 @@ func (gossiper *Gossiper) processSearchReply() {
 }
 
 func (gossiper *Gossiper) processDStorage() {
-	for extPacket := range PacketChannels["DStorage"] {
+	for extPacket := range PacketChannels["dstorageMessage"] {
 		go func() {
 			gossiper.DstorageHandler.DStore.GetReceiveChannel() <- &storage.MessageAddrPair{Message: extPacket.Packet.DStoreMessage, Address: extPacket.SenderAddr.String()}
 		}()

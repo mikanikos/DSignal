@@ -117,7 +117,7 @@ func createWorkingDirectories() {
 }
 
 // Run application
-func (gossiper *Gossiper) Run() {
+func (gossiper *Gossiper) Run(address string) {
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -153,15 +153,19 @@ func (gossiper *Gossiper) Run() {
 	go gossiper.receivePacketsFromClient(clientChannel)
 	go gossiper.receivePacketsFromPeers()
 
+	go gossiper.processDStorage()
+
 	gossiper.DstorageHandler.DStore.Init(helpers.GetArrayStringFromAddresses(gossiper.GetPeers()))
 	go func() {
 		for {
 			m := <-gossiper.DstorageHandler.DStore.GetSendChannel()
+			
+			if m.Address == address {
+				continue
+			}
 			gossiper.ConnectionHandler.SendPacket(&GossipPacket{DStoreMessage: m.Message}, gossiper.GetPeerFromString(m.Address))
 		}
 	}()
-
-	go gossiper.processDStorage()
 
 	if debug {
 		fmt.Println("Gossiper running")

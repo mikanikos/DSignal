@@ -44,7 +44,7 @@ func main() {
 	s := adssignal.NewSignalHandler(*gossipName, g, w)
 
 	// run gossiper
-	g.Run()
+	g.Run(*gossipAddr)
 	fmt.Println("Gossiper running")
 
 	w.Run()

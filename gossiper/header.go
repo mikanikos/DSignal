@@ -19,7 +19,7 @@ var hw3ex4Mode = false
 var ackAllMode = false
 var SignalMode = false
 
-var modeTypes = []string{"simple", "rumor", "status", "private", "dataRequest", "dataReply", "searchRequest", "searchReply", "tlcMes", "tlcAck", "clientBlock", "tlcCausal", "whisperPacket", "whisperStatus"}
+var modeTypes = []string{"simple", "rumor", "status", "private", "dataRequest", "dataReply", "searchRequest", "searchReply", "tlcMes", "tlcAck", "clientBlock", "tlcCausal", "whisperPacket", "whisperStatus", "dstorageMessage"}
 
 // channels used throughout the app to exchange messages
 var PacketChannels map[string]chan *ExtendedGossipPacket
