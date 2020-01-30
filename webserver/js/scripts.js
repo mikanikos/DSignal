@@ -1,3 +1,5 @@
+// Authors: Sergio Roldan
+
 $(document).ready(function () {
 
     // Perfect scrollbars

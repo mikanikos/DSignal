@@ -1,3 +1,5 @@
+// Authors: Andrea Piccione, Sergio Roldan, Dewmini Marakkalage
+
 package gossiper
 
 import (

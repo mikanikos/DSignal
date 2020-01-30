@@ -1,3 +1,5 @@
+// Authors: Sergio Roldan
+
 package adssignal
 
 import (

@@ -1,3 +1,5 @@
+// Authors: Dewmini Marakkalage, Sergio Roldan
+
 package gossiper
 
 import (

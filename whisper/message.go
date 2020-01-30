@@ -1,3 +1,5 @@
+/* Authors: Andrea Piccione */
+
 package whisper
 
 import (

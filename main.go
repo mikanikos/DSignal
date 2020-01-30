@@ -1,3 +1,5 @@
+/* Authors: Andrea Piccione, Sergio Roldan */
+
 package main
 
 import (
