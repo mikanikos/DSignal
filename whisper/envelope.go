@@ -1,4 +1,4 @@
-/* Authors: Andrea Piccione */
+/* Contributors: Andrea Piccione */
 
 package whisper
 

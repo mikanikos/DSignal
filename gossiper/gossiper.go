@@ -1,4 +1,4 @@
-// Authors: Andrea Piccione, Sergio Roldan, Dewmini Marakkalage
+// Contributors: Andrea Piccione, Sergio Roldan, Dewmini Marakkalage
 
 package gossiper
 

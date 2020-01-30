@@ -1,4 +1,4 @@
-// Authors: Sergio Roldan
+// Contributors: Sergio Roldan
 
 $(document).ready(function () {
 

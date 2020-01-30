@@ -1,4 +1,4 @@
-// Authors: Dewmini Marakkalage
+// Contributors: Dewmini Marakkalage
 
 package secure
 

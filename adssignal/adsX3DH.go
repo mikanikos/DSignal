@@ -1,4 +1,4 @@
-// Authors: Sergio Roldan
+// Contributors: Sergio Roldan
 
 package adssignal
 

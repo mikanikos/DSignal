@@ -1,4 +1,4 @@
-// Authors: Sergio Roldan, Andrea Piccione
+// Contributors: Sergio Roldan, Andrea Piccione
 
 package adssignal
 

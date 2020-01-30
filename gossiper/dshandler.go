@@ -1,4 +1,4 @@
-// Authors: Dewmini Marakkalage, Sergio Roldan
+// Contributors: Dewmini Marakkalage, Sergio Roldan
 
 package gossiper
 

@@ -1,4 +1,4 @@
-/* Authors: Andrea Piccione, Sergio Roldan */
+/* Contributors: Andrea Piccione, Sergio Roldan */
 
 package webserver
 
