@@ -11,8 +11,7 @@ import (
 	"math/big"
 )
 
-// GenerateRandomID generates a random string
-func GenerateRandomID() (id string, err error) {
+func generateRandomID() (id string, err error) {
 	buf, err := generateRandomBytes(keyIDSize)
 	if err != nil {
 		return "", err

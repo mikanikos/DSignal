@@ -25,7 +25,7 @@ const (
 	identityTimeout    = 5
 	hopLimit           = 10
 	maxChannelSize     = 1024
-	defaultTTL         = 300
+	defaultTTL         = 60
 	defaultPoWTime     = 1
 	defaultPoWRequired = 0.2
 )
@@ -135,7 +135,7 @@ func (signal *SignalHandler) listenForClientMessages() {
 
 func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 
-	ticker := time.NewTicker(250 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -148,31 +148,32 @@ func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 			}
 
 			if len(mess) != 0 {
-				for _, m := range mess {
+				go func (messages []*whisper.ReceivedMessage) {
+					for _, m := range messages {
 
-					packet := &SignalPacket{}
+						packet := &SignalPacket{}
 
-					// decode message
-					err = protobuf.Decode(m.Payload, packet)
-					helpers.ErrorCheck(err, false)
+						// decode message
+						err = protobuf.Decode(m.Payload, packet)
+						helpers.ErrorCheck(err, false)
 
-					modeType := -1
-					if packet.X3DHIdentity != nil {
-						modeType = identityDH
-					} else if packet.X3DHMessage != nil {
-						modeType = messageDH
-					} else if packet.RatchetMessage != nil {
-						modeType = ratchet
-					} else {
-						fmt.Println("¿?")
-						continue
+						modeType := -1
+						if packet.X3DHIdentity != nil {
+							modeType = identityDH
+						} else if packet.X3DHMessage != nil {
+							modeType = messageDH
+						} else if packet.RatchetMessage != nil {
+							modeType = ratchet
+						} else {
+							fmt.Println("¿?")
+							continue
+						}
+
+						go func(p *SignalPacket, m int) {
+							SignalPacketChannels[m] <- p
+						}(packet, modeType)
 					}
-
-					go func(p *SignalPacket, m int) {
-						SignalPacketChannels[m] <- p
-					}(packet, modeType)
-
-				}
+				}(mess)
 			}
 		}
 	}

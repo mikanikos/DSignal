@@ -66,9 +66,11 @@ func (whisper *Whisper) NewWhisperMessage(message NewMessage) ([]byte, error) {
 
 	err = whisper.SendEnvelope(env)
 	if err == nil {
+		fmt.Println("[WHISPER] sent whisper envelope")
 		hash := env.GetHash()
 		result = hash[:]
 	}
+
 	return result, err
 }
 
@@ -98,6 +100,7 @@ func (whisper *Whisper) GetFilterMessages(id string) ([]*ReceivedMessage, error)
 
 // NewMessageFilter creates a new filter
 func (whisper *Whisper) NewMessageFilter(req FilterOptions) (string, error) {
+
 	filter := &Filter{}
 
 	isSymKey := len(req.SymKeyID) > 0
@@ -147,6 +150,8 @@ func (whisper *Whisper) NewMessageFilter(req FilterOptions) (string, error) {
 	if err == nil {
 		whisper.updateBloomFilter(f)
 	}
+
+	fmt.Println("[WHISPER] created new filter with id = " + s)
 
 	return s, err
 }

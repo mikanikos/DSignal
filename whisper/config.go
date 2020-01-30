@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// main whisper protocol parameters, from official source
+// main whisper protocol parameters, from official specs
 const (
 	statusCode         = 0
 	messagesCode       = 1
@@ -17,18 +17,18 @@ const (
 	keyIDSize       = 32
 	BloomFilterSize = 64
 
-	MaxMessageSize        = uint32(10 * 1024 * 1024) // maximum accepted GetSize of a message.
+	MaxMessageSize        = uint32(10 * 1024 * 1024)
 	DefaultMaxMessageSize = uint32(1024 * 1024)
 	DefaultMinimumPoW     = 0.2
-	DefaultTTL            = 60 // in seconds
-	DefaultSyncAllowance  = 10 // seconds
+	DefaultTTL            = 60
+	DefaultSyncAllowance  = 10
 
 	padSizeLimit      = 256
 	messageQueueLimit = 1024
 
-	expirationTimer = 4 * time.Second
-	broadcastTimer  = 2 * time.Second
-	statusTimer     = 2 * time.Second
+	expirationTimer = 10 * time.Second
+	broadcastTimer  = time.Second
+	statusTimer     = 10 * time.Second
 )
 
 const (

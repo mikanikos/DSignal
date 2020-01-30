@@ -102,9 +102,6 @@ func (params *MessageParams) GetEnvelopeFromMessage() (envelope *Envelope, err e
 	} else {
 		encrypted = params.Payload
 	}
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	envelope = NewEnvelope(params.TTL, params.Topic, encrypted)
 
