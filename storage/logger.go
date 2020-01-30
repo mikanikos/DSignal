@@ -9,7 +9,7 @@ import (
 func (ds *DStore) logMessage(format string, args ...interface{}) {
 	ds.logMutex.Lock()
 	defer ds.logMutex.Unlock()
-	s := fmt.Sprintf("[%s] ", ds.commonName)
+	s := fmt.Sprintf("\nDStorage: ")
 	s += fmt.Sprintf(format, args...)
 	ds.displayLogs = append(ds.displayLogs, s)
 	fmt.Fprintln(os.Stdout, s)
@@ -18,7 +18,7 @@ func (ds *DStore) logMessage(format string, args ...interface{}) {
 func (ds *DStore) logError(format string, args ...interface{}) {
 	ds.logMutex.Lock()
 	defer ds.logMutex.Unlock()
-	fmt.Fprintf(os.Stderr, "[%s] ", ds.commonName)
+	fmt.Fprintf(os.Stderr, "DStorage: ")
 	fmt.Fprintf(os.Stderr, format, args...)
 	fmt.Fprintln(os.Stderr)
 }
@@ -26,7 +26,7 @@ func (ds *DStore) logError(format string, args ...interface{}) {
 func (ds *DStore) logDebug(format string, args ...interface{}) {
 	ds.logMutex.Lock()
 	defer ds.logMutex.Unlock()
-	fmt.Fprintf(os.Stderr, "[%s] ", ds.commonName)
+	fmt.Fprintf(os.Stderr, "DStorage: ")
 	fmt.Fprintf(os.Stderr, format, args...)
 	fmt.Fprintln(os.Stderr)
 }

@@ -24,7 +24,7 @@ func main() {
 	// create new client
 	client := clientsender.NewClient(*uiPort)
 	// send message
-	client.SendMessage(*msg, dest, file, request, *keywords, *budget, identity)
+	client.SendMessage(*msg, dest, file, request, *keywords, *budget, *identity)
 	// close connection once done
 	client.Conn.Close()
 }

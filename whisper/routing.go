@@ -1,7 +1,7 @@
 package whisper
 
 import (
-	"fmt"
+	//"fmt"
 	"github.com/dedis/protobuf"
 	"github.com/mikanikos/DSignal/gossiper"
 	"math"
@@ -55,7 +55,7 @@ func (routingHandler *RoutingHandler) updateRoutingTable(whisperStatus *gossiper
 				} else {
 					status.Bloom = whisperStatus.Bloom
 				}
-				//fmt.Println("[WHISPER] routing table updated for BloomFilter, peer entry " + address.String())
+				//fmt.Println("\nWhisper: routing table updated for BloomFilter, peer entry " + address.String())
 			}
 		}
 
@@ -66,10 +66,10 @@ func (routingHandler *RoutingHandler) updateRoutingTable(whisperStatus *gossiper
 				} else {
 					status.Pow = whisperStatus.Pow
 				}
-				//fmt.Println("[WHISPER] routing table updated for PoW, peer entry " + address.String())
+				//fmt.Println("\nWhisper: routing table updated for PoW, peer entry " + address.String())
 			}
 		}
-		fmt.Println("[WHISPER] routing table updated, peer entry " + address.String())
+		//fmt.Println("\nWhisper: routing table updated, peer entry " + address.String())
 	}
 }
 
@@ -111,7 +111,7 @@ func (whisper *Whisper) forwardEnvelope(envOr *EnvelopeOrigin) {
 				//fmt.Println("Passed check")
 				address := whisper.gossiper.GetPeerFromString(peer)
 				if address != nil {
-					fmt.Println("[WHISPER] packet forwarded to peer " + address.String())
+					//fmt.Println("\nWhisper: packet forwarded to peer " + address.String())
 					whisper.gossiper.ConnectionHandler.SendPacket(packet, address)
 				}
 			}

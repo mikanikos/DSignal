@@ -66,7 +66,7 @@ func (whisper *Whisper) NewWhisperMessage(message NewMessage) ([]byte, error) {
 
 	err = whisper.SendEnvelope(env)
 	if err == nil {
-		fmt.Println("[WHISPER] sent whisper envelope")
+		fmt.Println("\nWhisper: sent whisper envelope")
 		hash := env.GetHash()
 		result = hash[:]
 	}
@@ -151,7 +151,7 @@ func (whisper *Whisper) NewMessageFilter(req FilterOptions) (string, error) {
 		whisper.updateBloomFilter(f)
 	}
 
-	fmt.Println("[WHISPER] created new filter with id = " + s)
+	fmt.Println("\nWhisper: created new filter with id = " + s)
 
 	return s, err
 }

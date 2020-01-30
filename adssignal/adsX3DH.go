@@ -122,7 +122,6 @@ func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender,
 	sIKcompressed := Marshal(selfIdentity.IK.PubKey.x, selfIdentity.IK.PubKey.y)
 
 	AD := append(sIKcompressed, rIKcompressed...)
-	fmt.Println(AD)
 
 	EKcompressed := Marshal(EK.PubKey.x, EK.PubKey.y)
 

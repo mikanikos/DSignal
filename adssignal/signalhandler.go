@@ -115,11 +115,11 @@ func (signal *SignalHandler) Run() {
 	remoteIdentity := CompressRemoteIdentity(tmpIdentity)
 	b, err := json.Marshal(remoteIdentity)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 
 	metaHash := signal.g.DstorageHandler.DStore.StoreFile(b, storage.HashTypeSha256, storage.TypeBasicFile)
-	fmt.Println("DStore: Identity metahash " + hex.EncodeToString(metaHash))
+	fmt.Println("\nDStorage: Identity metahash " + hex.EncodeToString(metaHash))
 }
 
 func (signal *SignalHandler) listenForClientMessages() {
@@ -496,6 +496,8 @@ func (signal *SignalHandler) sendPrivateRatchet(message, destination, identity s
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			fmt.Println(decoded)
 
 			b := signal.g.DstorageHandler.DStore.RetrieveFile(decoded)
 			rIdentityCompressed := RemoteIdentityCompressed{}
