@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 	"sort"
-	"strings"
+	//"strings"
 	"time"
 )
 
@@ -13,7 +13,7 @@ func (ds *DStore) NodeLookUp(id []byte) []*RoutingEntry {
 		return make([]*RoutingEntry, 0)
 	}
 
-	ds.logMessage("Node lookup for ID %s", str(id))
+	//ds.logMessage("Node lookup for ID %s", str(id))
 
 	type DistEntryPair struct {
 		dist      []byte
@@ -121,7 +121,10 @@ func (ds *DStore) NodeLookUp(id []byte) []*RoutingEntry {
 						result = append(result, entryList[k].entry)
 						s = append(s, fmt.Sprintf("%s [%s]", str(entryList[k].entry.ID), entryList[k].entry.Address))
 					}
-					ds.logMessage("Nodes closest to ID %s are {%s}", str(id), strings.Join(s, ", "))
+
+					if len(s) != 0 {
+						//ds.logMessage("Nodes closest to ID %s are {%s}", str(id), strings.Join(s, ", "))
+					}
 					return result
 				}
 				sort.Slice(entryList, func(i, j int) bool { return Compare(entryList[i].dist, entryList[j].dist) < 0 })

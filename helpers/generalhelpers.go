@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	"fmt"
+	//"fmt"
 	"net"
 	"sort"
 )
@@ -26,7 +26,7 @@ func ErrorCheck(err error, doPanic bool) {
 		if doPanic {
 			panic(err)
 		} else {
-			fmt.Println("Error ", err)
+			//fmt.Println("Error ", err)
 		}
 	}
 }

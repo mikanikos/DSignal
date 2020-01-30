@@ -45,13 +45,13 @@ func main() {
 
 	// run gossiper
 	g.Run(*gossipAddr)
-	fmt.Println("Gossiper running")
+	fmt.Println("\nGossiper running")
 
 	w.Run()
-	fmt.Println("Whisper running")
+	fmt.Println("\nWhisper running")
 
 	s.Run()
-	fmt.Println("Signal running")
+	fmt.Println("\nSignal running")
 
 	// if gui port specified, create and run the web server (if not, avoid waste of resources for performance reasons)
 	if *guiPort != "" {

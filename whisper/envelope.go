@@ -65,7 +65,7 @@ func (e *Envelope) GetMessageFromEnvelope(subscriber *Filter) *ReceivedMessage {
 
 	msg := &ReceivedMessage{}
 
-	if subscriber.isAsymmetricEncryption() {
+	if subscriber.KeyAsym != nil {
 		decrypted, err := decryptWithPrivateKey(e.Data, subscriber.KeyAsym)
 		msg.Payload = decrypted
 		if err != nil {
@@ -74,7 +74,7 @@ func (e *Envelope) GetMessageFromEnvelope(subscriber *Filter) *ReceivedMessage {
 		if decrypted != nil {
 			msg.Dst = subscriber.KeyAsym.PublicKey
 		}
-	} else if subscriber.isSymmetricEncryption() {
+	} else if subscriber.KeySym != nil {
 		decrypted, err := decryptWithSymmetricKey(e.Data, subscriber.KeySym)
 		msg.Payload = decrypted
 		if err != nil {

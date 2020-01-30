@@ -29,8 +29,6 @@ func NewFilterStorage() *FilterStorage {
 	return &FilterStorage{
 		subscribers:    make(map[string]*Filter),
 		topicToFilters: make(map[Topic]map[*Filter]struct{}),
-		//allTopicsMatcher: make(map[*Filter]struct{}),
-		//whisper:          w,
 	}
 }
 
@@ -44,7 +42,7 @@ func (fs *FilterStorage) AddFilter(filter *Filter) (string, error) {
 		filter.Messages = make(map[[32]byte]*ReceivedMessage)
 	}
 
-	id, err := GenerateRandomID()
+	id, err := generateRandomID()
 	if err != nil {
 		return "", err
 	}
@@ -113,8 +111,9 @@ func (fs *FilterStorage) NotifySubscribers(env *Envelope) {
 		if sub.Pow <= 0 || env.pow >= sub.Pow {
 			msg = env.GetMessageFromEnvelope(sub)
 			if msg == nil {
-				fmt.Println("failed to open message")
+				fmt.Println("\nWhisper: failed to open message")
 			} else {
+				fmt.Println("\nWhisper: unwrapped and decrypted payload, new message for client is available")
 				sub.Mutex.Lock()
 				if _, exist := sub.Messages[msg.EnvelopeHash]; !exist {
 					sub.Messages[msg.EnvelopeHash] = msg
@@ -123,14 +122,6 @@ func (fs *FilterStorage) NotifySubscribers(env *Envelope) {
 			}
 		}
 	}
-}
-
-func (f *Filter) isAsymmetricEncryption() bool {
-	return f.KeyAsym != nil
-}
-
-func (f *Filter) isSymmetricEncryption() bool {
-	return f.KeySym != nil
 }
 
 // GetReceivedMessagesFromFilter returns received messages given for a filter

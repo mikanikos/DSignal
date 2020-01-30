@@ -40,7 +40,7 @@ type Whisper struct {
 	blacklist map[string]struct{}
 
 	messageQueue chan *Envelope
-	quit         chan struct{}  // channel used for graceful exit
+	quit         chan struct{} // channel used for graceful exit
 }
 
 // NewWhisper creates new Whisper instance
@@ -81,7 +81,7 @@ func (whisper *Whisper) Run() {
 	go whisper.processWhisperStatus()
 	go whisper.updateEnvelopes()
 	go whisper.sendStatusPeriodically()
-	
+
 	numCPU := runtime.NumCPU()
 	for i := 0; i < numCPU; i++ {
 		go whisper.processQueue()
@@ -98,7 +98,7 @@ func (whisper *Whisper) Stop() error {
 // process incoming whisper status
 func (whisper *Whisper) processWhisperStatus() {
 	for extPacket := range gossiper.PacketChannels["whisperStatus"] {
-		//fmt.Println("Got whisperStatus from " + extPacket.SenderAddr.String())
+		//fmt.Println("\nWhisper: received status packet from peer " + extPacket.SenderAddr.String())
 		if _, loaded := whisper.blacklist[extPacket.SenderAddr.String()]; !loaded {
 			whisper.routingHandler.updateRoutingTable(extPacket.Packet.WhisperStatus, extPacket.SenderAddr)
 			whisper.gossiper.HandleGossipMessage(extPacket, extPacket.Packet.WhisperStatus.Origin, extPacket.Packet.WhisperStatus.ID)
@@ -109,15 +109,13 @@ func (whisper *Whisper) processWhisperStatus() {
 // process incoming whisper envelopes
 func (whisper *Whisper) processWhisperPacket() {
 	for extPacket := range gossiper.PacketChannels["whisperPacket"] {
-		//fmt.Println("Got whisperPacket from " + extPacket.SenderAddr.String())
+		//fmt.Println("\nWhisper: received envelope from peer " + extPacket.SenderAddr.String())
 		if _, loaded := whisper.blacklist[extPacket.SenderAddr.String()]; !loaded {
 
 			packet := extPacket.Packet.WhisperPacket
 
 			if packet.Code == messagesCode {
 				// decode the contained envelope
-
-				//fmt.Println("Got envelope")
 
 				envelope := &Envelope{}
 
@@ -126,10 +124,10 @@ func (whisper *Whisper) processWhisperPacket() {
 					fmt.Println(err)
 				}
 
-
-				err = whisper.handleEnvelope(&EnvelopeOrigin{Envelope:envelope, Origin: extPacket.SenderAddr})
+				err = whisper.handleEnvelope(&EnvelopeOrigin{Envelope: envelope, Origin: extPacket.SenderAddr})
 				if err != nil {
-					fmt.Println("BLACKLIST: bad envelope received, address will be disconnected")
+					fmt.Println("\nWhisper: bad envelope received, peer " + extPacket.SenderAddr.String() + " will be disconnected")
+					//fmt.Println(err)
 					whisper.blacklist[extPacket.SenderAddr.String()] = struct{}{}
 				}
 			}
@@ -245,40 +243,50 @@ func (whisper *Whisper) handleEnvelope(envelopeOrigin *EnvelopeOrigin) error {
 
 	envelope := envelopeOrigin.Envelope
 
-	if envelopeOrigin.Origin != whisper.gossiper.ConnectionHandler.GossiperData.Address {
-
-		sent := envelope.Expiry - envelope.TTL
-
-		if sent > now {
-			if sent-DefaultSyncAllowance > now {
-				return fmt.Errorf("envelope created in the future")
-			}
-			envelope.computePow(sent - now + 1)
+	isInterestingForPeers := false
+	for peer, status := range whisper.routingHandler.peerStatus {
+		if peer != envelopeOrigin.Origin.String() && CheckFilterMatch(status.Bloom, envelope.GetBloom()) && envelope.GetPow() >= status.Pow {
+			isInterestingForPeers = true
+			break
 		}
+	}
 
-		if envelope.Expiry < now {
-			if envelope.Expiry+DefaultSyncAllowance*2 < now {
-				return fmt.Errorf("very old message")
-			}
-			fmt.Println("expired envelope dropped")
-			return nil
-		}
+	var err error
 
-		if uint32(envelope.GetSize()) > MaxMessageSize {
-			return fmt.Errorf("huge messages are not allowed")
-		}
+	sent := envelope.Expiry - envelope.TTL
 
-		if envelope.GetPow() < whisper.GetMinPow() {
-			if envelope.GetPow() < whisper.GetMinPowTolerated() {
-				return fmt.Errorf("envelope with low pow received: " + fmt.Sprint(envelope.GetPow()))
-			}
+	if sent > now {
+		if sent-DefaultSyncAllowance > now {
+			err = fmt.Errorf("envelope created in the future")
 		}
+		envelope.computePow(sent - now + 1)
+	}
 
-		if !CheckFilterMatch(whisper.GetBloomFilter(), envelope.GetBloom()) {
-			if !CheckFilterMatch(whisper.GetBloomFilterTolerated(), envelope.GetBloom()) {
-				return fmt.Errorf("envelope does not match bloom filter")
-			}
+	if envelope.Expiry < now {
+		if envelope.Expiry+DefaultSyncAllowance*2 < now {
+			err = fmt.Errorf("very old message")
 		}
+		fmt.Println("\nWhisper: expired envelope dropped")
+	}
+
+	if uint32(envelope.GetSize()) > MaxMessageSize {
+		err = fmt.Errorf("huge messages are not allowed")
+	}
+
+	if envelope.GetPow() < whisper.GetMinPow() {
+		if envelope.GetPow() < whisper.GetMinPowTolerated() {
+			err = fmt.Errorf("\nWhisper: envelope with low pow received: " + fmt.Sprint(envelope.GetPow()))
+		}
+	}
+
+	if !CheckFilterMatch(whisper.GetBloomFilter(), envelope.GetBloom()) {
+		if !CheckFilterMatch(whisper.GetBloomFilterTolerated(), envelope.GetBloom()) {
+			err = fmt.Errorf("\nWhisper: envelope does not match bloom filter")
+		}
+	}
+
+	if err != nil && !isInterestingForPeers {
+		return err
 	}
 
 	hash := envelope.GetHash()
@@ -295,7 +303,7 @@ func (whisper *Whisper) handleEnvelope(envelopeOrigin *EnvelopeOrigin) error {
 			whisper.messageQueue <- envelope
 		}(envelope)
 	} else {
-		fmt.Println("whisper envelope already present")
+		//fmt.Println("\nWhisper: envelope already in cache")
 	}
 
 	whisper.envelopes.Mutex.Unlock()
@@ -327,11 +335,9 @@ func (whisper *Whisper) updateEnvelopes() {
 	for {
 		select {
 		case <-expire.C:
-			//fmt.Println("flushing")
 			whisper.removeExpiredEnvelopes()
 
 		case <-transmit.C:
-			//fmt.Println("broadcasting")
 			whisper.broadcastMessages()
 
 		case <-whisper.quit:

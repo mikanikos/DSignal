@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"fmt"
 )
 
 // Constants used by DStore
@@ -80,7 +81,6 @@ func NewDStore(name string, addr string, replicationParam int, concurrencyParam 
 // Init initializes a DStore.
 func (ds *DStore) Init(contacts []string) {
 	for _, c := range contacts {
-		ds.logMessage(str(GetDStoreIDForName(c)))
 		r := &RoutingEntry{Address: c, ID: GetDStoreIDForName(c)}
 		ds.routingTable.Update(r)
 	}
@@ -130,6 +130,7 @@ func (ds *DStore) PingNode(addr string) bool {
 
 // RetrieveFile ...
 func (ds *DStore) RetrieveFile(metaHash []byte) []byte {
+	fmt.Println(metaHash)
 	fileType := metaHash[0]
 	hashType := metaHash[1]
 	hashBlock := 2 + HashLength[int(hashType)]
