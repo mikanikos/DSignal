@@ -17,6 +17,7 @@ type Message struct {
 	Request     *[]byte
 	Keywords    *string
 	Budget      *uint64
+	Identity    *string
 }
 
 // ErrorCheck to log errors

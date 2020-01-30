@@ -3,6 +3,7 @@ package adssignal
 import (
 	"fmt"
 	"strings"
+	"bytes"
 )
 
 // DEFAULTOPKN number of OPKs generated
@@ -32,6 +33,16 @@ type RemoteIdentity struct {
 	IK   EllipticPoint
 	SPK  EllipticPoint
 	Sign *ECDSA
+	OPK []EllipticPoint
+}
+
+// RemoteIdentityCompressed Any remote Peer identity
+type RemoteIdentityCompressed struct {
+	IK   []byte
+	SPK  []byte
+	R []byte
+	S []byte
+	OPK [][]byte
 }
 
 // X3DHMessage message
@@ -83,7 +94,7 @@ func (identity *SelfIdentity) UpdateIdentity() {
 }
 
 // SInitializeX3DH the X3DH protocol in sender side
-func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender, receiver string, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *X3DHMessage {
+func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender, receiver string, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState, message *string) *X3DHMessage {
 	compressedSPK := Marshal(rIdentity.SPK.x, rIdentity.SPK.y)
 
 	if !VerifySignature(compressedSPK, *rIdentity.Sign, rIdentity.IK) {
@@ -120,7 +131,12 @@ func SInitializeX3DH(rIdentity RemoteIdentity, oneTimePk *EllipticPoint, sender,
 	ratchetState.SInitializeRatchet(SK, &rIdentity.SPK, receiver)
 	stateTable[receiver] = &ratchetState
 
-	ratchetMessage := ratchetState.RatchetEncrypt(sender+":"+receiver, sender, receiver, AD)
+	msg := sender+":"+receiver
+	if message != nil {
+		msg = msg + ":" + *message
+	}
+
+	ratchetMessage := ratchetState.RatchetEncrypt(msg, sender, receiver, AD)
 	x3dhMessage := X3DHMessage{
 		ratchetMessage,
 		sIKcompressed,
@@ -174,13 +190,66 @@ func RInitializeX3DH(msg X3DHMessage, OPK *DHPair, selfIdentity *SelfIdentity, s
 		return nil
 	}
 
-	fmt.Println(*plaintext)
-
 	plainarray := strings.Split(*plaintext, ":")
 	ratchetState.Peer = plainarray[0]
 	stateTable[plainarray[0]] = &ratchetState
 
 	return &plainarray[1]
+}
+
+// IInitializeX3DH X3DH protocol in receiver side
+func IInitializeX3DH(msg X3DHMessage, selfIdentity *SelfIdentity, stateTable map[string]*DRatchetState) *string {
+	xIK, yIK, C := Unmarshal(msg.IK)
+	rIK := EllipticPoint{
+		C, xIK, yIK,
+	}
+
+	// Compute dh1, dh2, dh3, dh4 using own and remote identity's keys
+	xEK, yEK, C := Unmarshal(msg.EK)
+	rEK := EllipticPoint{
+		C, xEK, yEK,
+	}
+
+	dh1 := DH(selfIdentity.SPK, rIK)
+	dh2 := DH(selfIdentity.IK, rEK)
+	dh3 := DH(selfIdentity.SPK, rEK)
+
+	dhx := append(dh1, dh2...)
+	dhx = append(dhx, dh3...)
+
+	if msg.OPK != nil {
+		var OPK *DHPair
+		for _, op := range selfIdentity.OPK {
+			if bytes.Compare(CompressPoint(*op.PubKey), *msg.OPK) == 0 {
+				OPK = &op
+				break
+			}
+		}
+
+		if OPK != nil {
+			dh4 := DH(*OPK, rEK)
+			dhx = append(dhx, dh4...)
+		}
+	}
+
+	SK := KdfX3DH(dhx)
+
+	// Initialize the ratchet and decrypt the message
+	ratchetState := DRatchetState{}
+	ratchetState.RInitializeRatchet(SK, &selfIdentity.SPK)
+
+	plaintext := ratchetState.RatchetDecrypt(msg.RMessage.Header, msg.RMessage.Message)
+
+	if plaintext == nil {
+		fmt.Println("Plaintext non decypted")
+		return nil
+	}
+
+	plainarray := strings.Split(*plaintext, ":")
+	ratchetState.Peer = plainarray[0]
+	stateTable[plainarray[0]] = &ratchetState
+
+	return &plainarray[2]
 }
 
 // CompressIdentity identity
@@ -202,6 +271,22 @@ func CompressIdentity(selfIdentity SelfIdentity) SelfIdentityCompressed {
 		SPKcompressed,
 		selfIdentity.Sign.R,
 		selfIdentity.Sign.S,
+		OPK,
+	}
+}
+
+// CompressRemoteIdentity identity
+func CompressRemoteIdentity(selfIdentity SelfIdentityCompressed) RemoteIdentityCompressed {
+	var OPK [][]byte
+	for i:=0; i<DEFAULTOPKN; i++ {
+		OPK = append(OPK, selfIdentity.OPK[i][1])
+	}
+
+	return RemoteIdentityCompressed {
+		selfIdentity.IKPubKey,
+		selfIdentity.SPKPubKey,
+		selfIdentity.R,
+		selfIdentity.S,
 		OPK,
 	}
 }
@@ -242,6 +327,30 @@ func UncompressIdentity(compressed SelfIdentityCompressed) SelfIdentity {
 	}
 
 	return SelfIdentity {
+		IK,
+		SPK,
+		&sign,
+		OPK,
+	}
+}
+
+// UncompressRemoteIdentity identity
+func UncompressRemoteIdentity(compressed RemoteIdentityCompressed) RemoteIdentity {
+
+	IK := UncompressPoint(compressed.IK)
+	SPK := UncompressPoint(compressed.SPK)
+
+	sign := ECDSA {
+		compressed.R,
+		compressed.S,
+	}
+
+	var OPK []EllipticPoint
+	for i:=0; i<DEFAULTOPKN; i++ {
+		OPK = append(OPK, UncompressPoint(compressed.OPK[i]))
+	}
+
+	return RemoteIdentity {
 		IK,
 		SPK,
 		&sign,

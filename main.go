@@ -6,7 +6,6 @@ import (
 	"github.com/mikanikos/DSignal/adssignal"
 	"github.com/mikanikos/DSignal/gossiper"
 	"github.com/mikanikos/DSignal/helpers"
-	"github.com/mikanikos/DSignal/storage"
 	"github.com/mikanikos/DSignal/webserver"
 	"github.com/mikanikos/DSignal/whisper"
 )
@@ -41,10 +40,8 @@ func main() {
 	g := gossiper.NewGossiper(*gossipName, *gossipAddr, helpers.BaseAddress+":"+*uiPort, *peers, *peersNumber)
 
 	w := whisper.NewWhisper(g)
-
-	ds := storage.NewDStore(*gossipName, *gossipAddr, 1, 1)
-
-	s := adssignal.NewSignalHandler(*gossipName, g, w, ds)
+	
+	s := adssignal.NewSignalHandler(*gossipName, g, w)
 
 	// run gossiper
 	g.Run()

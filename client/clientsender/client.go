@@ -31,10 +31,10 @@ func NewClient(uiPort string) *Client {
 }
 
 // SendMessage to gossiper
-func (client *Client) SendMessage(msg string, dest, file, request *string, keywords string, budget uint64) {
+func (client *Client) SendMessage(msg string, dest, file, request *string, keywords string, budget uint64, identity *string) {
 
 	// create correct packet from arguments
-	packet := convertInputToMessage(msg, *dest, *file, *request, keywords, budget)
+	packet := convertInputToMessage(msg, *dest, *file, *request, keywords, budget, *identity)
 
 	if packet != nil {
 
@@ -48,25 +48,29 @@ func (client *Client) SendMessage(msg string, dest, file, request *string, keywo
 	}
 }
 
-func getInputType(msg, dest, file, request, keywords string, budget uint64) string {
+func getInputType(msg, dest, file, request, keywords string, budget uint64, identity string) string {
 
-	if msg != "" && dest == "" && file == "" && request == "" && keywords == "" {
+	if msg != "" && dest == "" && file == "" && request == "" && keywords == "" && identity == "" {
 		return "rumor"
 	}
 
-	if msg != "" && dest != "" && file == "" && request == "" && keywords == "" {
+	if msg != "" && dest != "" && file == "" && request == "" && keywords == "" && identity == "" {
 		return "private"
 	}
 
-	if msg == "" && dest == "" && file != "" && request == "" && keywords == "" {
+	if msg != "" && dest != "" && file == "" && request == "" && keywords == "" && identity != "" {
+		return "ratchet"
+	}
+
+	if msg == "" && dest == "" && file != "" && request == "" && keywords == "" && identity == "" {
 		return "file"
 	}
 
-	if msg == "" && file != "" && request != "" && keywords == "" {
+	if msg == "" && file != "" && request != "" && keywords == "" && identity == "" {
 		return "request"
 	}
 
-	if msg == "" && dest == "" && file == "" && request == "" && keywords != "" {
+	if msg == "" && dest == "" && file == "" && request == "" && keywords != "" && identity == "" {
 		return "search"
 	}
 
@@ -74,12 +78,12 @@ func getInputType(msg, dest, file, request, keywords string, budget uint64) stri
 }
 
 // ConvertInputToMessage for client arguments
-func convertInputToMessage(msg, dest, file, request, keywords string, budget uint64) *helpers.Message {
+func convertInputToMessage(msg, dest, file, request, keywords string, budget uint64, identity string) *helpers.Message {
 
 	packet := &helpers.Message{}
 
 	// get type of message to create
-	switch typeMes := getInputType(msg, dest, file, request, keywords, budget); typeMes {
+	switch typeMes := getInputType(msg, dest, file, request, keywords, budget, identity); typeMes {
 
 	case "rumor":
 		packet.Text = msg
@@ -87,6 +91,11 @@ func convertInputToMessage(msg, dest, file, request, keywords string, budget uin
 	case "private":
 		packet.Text = msg
 		packet.Destination = &dest
+
+	case "ratchet":
+		packet.Text = msg
+		packet.Destination = &dest
+		packet.Identity = &identity
 
 	case "file":
 		packet.File = &file

@@ -34,6 +34,7 @@ $(document).ready(function () {
         var actionurl = e.currentTarget.action;
         var input = $("#privateMsgForm #privateMsgTextArea").val();
         $("#privateMsgForm #privateMsgTextArea").val("");
+        var identity = $("#privateMsgForm #privateMsgHash").val();
 
         $("#msgForm .toast").each(function() {
             $(this).remove();
@@ -43,11 +44,27 @@ $(document).ready(function () {
             $.ajax({
                 url: '/message',
                 type: 'post',
-                data: { text: input, destination: $("#peerName").text() },
+                data: { text: input, destination: $("#peerName").text(), identity: identity },
             });
         } else {
             $("<div class=\"toast\" role=\"alert\" aria-live=\"assertive\" aria-atomic=\"true\"><div class=\"toast-header\"><strong class=\"mr-auto\">Error Message</strong><button type=\"button\" class=\"ml-2 mb-1 close\" data-dismiss=\"toast\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button></div><div class=\"toast-body\">The message must be non empty</div></div>").appendTo("#peersterForm");
         }
+    });
+
+    $("#peerForm").submit(function (event) {
+        event.preventDefault();
+        var peer = document.getElementById("peerInput").value;
+        document.getElementById("peerInput").value = "";
+
+        if (peer == "") {
+            return
+        }
+
+        $.ajax({
+            url: '/node',
+            type: 'post',
+            data: peer
+        });
     });
 
     function getPrivateMessages(user) {

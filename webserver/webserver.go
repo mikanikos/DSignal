@@ -146,6 +146,7 @@ func (webserver *Webserver) postMessageHandler(w http.ResponseWriter, r *http.Re
 	request := r.PostForm.Get("request")
 	keywords := r.PostForm.Get("keywords")
 	budget := r.PostForm.Get("budget")
+	identity := r.PostForm.Get("identity")
 
 	if budget == "" {
 		budget = "0"
@@ -154,7 +155,7 @@ func (webserver *Webserver) postMessageHandler(w http.ResponseWriter, r *http.Re
 	helpers.ErrorCheck(err, false)
 
 	// send message with parameters through client interface
-	webserver.Client.SendMessage(message, &destination, &file, &request, keywords, budgetValue)
+	webserver.Client.SendMessage(message, &destination, &file, &request, keywords, budgetValue, &identity)
 }
 
 // get and display the peers (neighbour nodes) known by the gossiper

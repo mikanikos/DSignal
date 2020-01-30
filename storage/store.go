@@ -80,6 +80,7 @@ func NewDStore(name string, addr string, replicationParam int, concurrencyParam 
 // Init initializes a DStore.
 func (ds *DStore) Init(contacts []string) {
 	for _, c := range contacts {
+		ds.logMessage(str(GetDStoreIDForName(c)))
 		r := &RoutingEntry{Address: c, ID: GetDStoreIDForName(c)}
 		ds.routingTable.Update(r)
 	}

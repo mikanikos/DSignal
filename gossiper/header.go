@@ -2,6 +2,7 @@ package gossiper
 
 import (
 	"github.com/mikanikos/DSignal/helpers"
+	"github.com/mikanikos/DSignal/storage"
 	"time"
 )
 
@@ -72,6 +73,7 @@ type GossipPacket struct {
 	Ack           *TLCAck
 	WhisperPacket *WhisperPacket
 	WhisperStatus *WhisperStatus
+	DStoreMessage *storage.DStoreMessage
 }
 
 // RumorMessage struct

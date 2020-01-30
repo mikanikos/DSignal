@@ -33,6 +33,8 @@ type Gossiper struct {
 	fileHandler *FileHandler
 	// handle abstractions for the blockchain (gossip with confirmation, tlc and qsc)
 	blockchainHandler *BlockchainHandler
+	// handle storage
+	DstorageHandler *DStorageHandler
 }
 
 // NewGossiper constructor
@@ -50,6 +52,7 @@ func NewGossiper(name, gossiperAddress, clientAddress, peers string, peersNum ui
 		routingHandler:    NewRoutingHandler(),
 		fileHandler:       NewFileHandler(),
 		blockchainHandler: NewBlockchainHandler(),
+		DstorageHandler:   NewDStorageHandler(name, gossiperAddress),
 	}
 
 	return gossiper
@@ -149,6 +152,16 @@ func (gossiper *Gossiper) Run() {
 	// listen for incoming packets
 	go gossiper.receivePacketsFromClient(clientChannel)
 	go gossiper.receivePacketsFromPeers()
+
+	gossiper.DstorageHandler.DStore.Init(helpers.GetArrayStringFromAddresses(gossiper.GetPeers()))
+	go func() {
+		for {
+			m := <-gossiper.DstorageHandler.DStore.GetSendChannel()
+			gossiper.ConnectionHandler.SendPacket(&GossipPacket{DStoreMessage: m.Message}, gossiper.GetPeerFromString(m.Address))
+		}
+	}()
+
+	go gossiper.processDStorage()
 
 	if debug {
 		fmt.Println("Gossiper running")

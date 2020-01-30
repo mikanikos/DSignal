@@ -10,12 +10,13 @@ import (
 	"log"
 	"os"
 	"strings"
+	"math/rand"
 	
 	"github.com/dedis/protobuf"
 	"github.com/mikanikos/DSignal/gossiper"
-	"github.com/mikanikos/DSignal/storage"
 	"github.com/mikanikos/DSignal/whisper"
 	"github.com/mikanikos/DSignal/helpers"
+	"github.com/mikanikos/DSignal/storage"
 )
 
 const (
@@ -49,7 +50,6 @@ var SignalPacketChannels map[int]chan *SignalPacket
 type SignalHandler struct {
 	w                *whisper.Whisper
 	g                *gossiper.Gossiper
-	ds               *storage.DStore
 	selfIdentity     SelfIdentity
 	stateTable       map[string]*DRatchetState
 	identityChannels sync.Map
@@ -60,7 +60,7 @@ type SignalHandler struct {
 }
 
 // NewSignalHandler Create a new handler
-func NewSignalHandler(name string, g *gossiper.Gossiper, w *whisper.Whisper, ds *storage.DStore) *SignalHandler {
+func NewSignalHandler(name string, g *gossiper.Gossiper, w *whisper.Whisper) *SignalHandler {
 	identity := retrieveIdentity(name)
 	states := make(map[string]*DRatchetState)
 
@@ -74,7 +74,6 @@ func NewSignalHandler(name string, g *gossiper.Gossiper, w *whisper.Whisper, ds 
 	signalHandler :=  &SignalHandler{
 		g: g,
 		w: w,
-		ds: ds,
 		selfIdentity:     *identity,
 		stateTable:       states,
 		identityChannels: sync.Map{},
@@ -111,11 +110,20 @@ func (signal *SignalHandler) Run() {
 
 	go signal.listenForIncomingMessages(filterHash)
 	go signal.listenForClientMessages()
+
+	tmpIdentity := CompressIdentity(signal.selfIdentity)
+	remoteIdentity := CompressRemoteIdentity(tmpIdentity)
+	b, err := json.Marshal(remoteIdentity)
+	if err != nil {
+		fmt.Println(err)
+	}
+	metaHash := signal.g.DstorageHandler.DStore.StoreFile(b, storage.HashTypeSha256, storage.TypeBasicFile)
+	fmt.Println("Identity metahash: " + hex.EncodeToString(metaHash))
 }
 
 func (signal *SignalHandler) listenForClientMessages() {
 	for message := range gossiper.SignalChannel {
-		go signal.sendPrivateRatchet(message.Text, *message.Destination)
+		go signal.sendPrivateRatchet(message.Text, *message.Destination, *message.Identity)
 	}
 }
 
@@ -168,7 +176,7 @@ func (signal *SignalHandler) listenForIncomingMessages(filterHash string) {
 
 func (signal *SignalHandler) handleClientPrivateMessage() {
 	for message := range gossiper.SignalChannel {
-		go signal.sendPrivateRatchet(message.Text, *message.Destination)
+		go signal.sendPrivateRatchet(message.Text, *message.Destination, *message.Identity)
 	}
 }
 
@@ -237,7 +245,26 @@ func (signal *SignalHandler) processDHMessages() {
 					c <- d
 				}(channel, packet.X3DHMessage)
 			} else {
-				// some initiated with old info
+				mes := "\nSignal: X3DHMessage from " + packet.X3DHMessage.RMessage.Header.Origin + " including IK:" + hex.EncodeToString(packet.X3DHMessage.IK) 
+				mes = mes + " EK:" + hex.EncodeToString(packet.X3DHMessage.EK) + " OPK:" + hex.EncodeToString(*packet.X3DHMessage.OPK) 
+				fmt.Println(mes)
+
+				signal.mutex.Lock()
+				res := IInitializeX3DH(*packet.X3DHMessage, &signal.selfIdentity, signal.stateTable)
+				signal.mutex.Unlock()
+
+				// Send the original message upon both ratchet initialized
+				if res != nil {
+					mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + packet.X3DHMessage.RMessage.Header.Origin + " and new public key" + hex.EncodeToString(packet.X3DHMessage.RMessage.Header.PubKey) 
+					fmt.Println(mes)
+
+					mes = "\nSignal: Make a Symmetric Ratchet receive step with " + packet.X3DHMessage.RMessage.Header.Origin + " and decipher " + *res
+					fmt.Println(mes)
+					
+					continue
+				}
+
+				fmt.Println("Unable to initialize X3DH in remote side")
 			}
 
 		} else {
@@ -330,20 +357,36 @@ func (signal *SignalHandler) sStartX3DH(user, message *string) {
 	go signal.sendIdentity(identityMsg, *OPK, message)
 }
 
+func (signal *SignalHandler) iStartX3DH(user, message *string, rIdentity RemoteIdentity) {
+	OPK := rIdentity.OPK[rand.Intn(len(rIdentity.OPK))]
+
+	signal.mutex.Lock()
+	res := SInitializeX3DH(rIdentity, &OPK, signal.g.Name, *user, &signal.selfIdentity, signal.stateTable, message)
+	signal.mutex.Unlock()
+
+	mes := "\nSignal: Starting X3DH with " + *user + " using OPK:" + hex.EncodeToString(CompressPoint(OPK)) 
+	fmt.Println(mes)
+
+	mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + *user + " using retrieved identity"
+	fmt.Println(mes)
+
+	signal.sendWhisperMessage(&SignalPacket{X3DHMessage: res}, defaultTTL, *user)
+}
+
 // Send a new identity and wait for a X3DHMessage reply
 func (signal *SignalHandler) sendIdentity(identityMsg X3DHIdentity, OPK DHPair, message *string) bool {
-
-	mes := "\nSignal: Starting X3DH with " + identityMsg.Destination + " using OPK:" + hex.EncodeToString(*identityMsg.OPK) 
-	fmt.Println(mes)
 
 	value, _ := signal.identityChannels.LoadOrStore(gossiper.GetKeyFromString(identityMsg.Destination), make(chan *X3DHMessage))
 	replyChan := value.(chan *X3DHMessage)
 
-	signal.sendWhisperMessage(&SignalPacket{X3DHIdentity: &identityMsg}, defaultTTL, identityMsg.Destination)
+	mes := "\nSignal: Starting X3DH with " + identityMsg.Destination + " using OPK:" + hex.EncodeToString(*identityMsg.OPK) 
+	fmt.Println(mes)
 
 	requestTimer := time.NewTicker(time.Duration(identityTimeout) * time.Second)
 	defer requestTimer.Stop()
 	retry := 3
+
+	signal.sendWhisperMessage(&SignalPacket{X3DHIdentity: &identityMsg}, defaultTTL, identityMsg.Destination)
 
 	for {
 		select {
@@ -359,14 +402,14 @@ func (signal *SignalHandler) sendIdentity(identityMsg X3DHIdentity, OPK DHPair, 
 			signal.mutex.Unlock()
 
 			// Send the original message upon both ratchet initialized
-			if *res == signal.g.Name && message != nil {
+			if res != nil && *res == signal.g.Name && message != nil {
 				mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + replyPacket.RMessage.Header.Origin + " and new public key" + hex.EncodeToString(replyPacket.RMessage.Header.PubKey) 
 				fmt.Println(mes)
 
 				mes = "\nSignal: Make a Symmetric Ratchet receive step with " + replyPacket.RMessage.Header.Origin + " and decipher " + *res
 				fmt.Println(mes)
 				
-				signal.sendPrivateRatchet(*message, replyPacket.RMessage.Header.Origin)
+				signal.sendPrivateRatchet(*message, replyPacket.RMessage.Header.Origin, "")
 				return true
 			}
 
@@ -404,7 +447,7 @@ func (signal *SignalHandler) rStartX3DH(rIdentity *X3DHIdentity) {
 	opk := UncompressPoint(*rIdentity.OPK)
 
 	signal.mutex.Lock()
-	msg := SInitializeX3DH(remoteIdentity, &opk, signal.g.Name, rIdentity.Origin, &signal.selfIdentity, signal.stateTable)
+	msg := SInitializeX3DH(remoteIdentity, &opk, signal.g.Name, rIdentity.Origin, &signal.selfIdentity, signal.stateTable, nil)
 	signal.mutex.Unlock()
 
 	mes = "\nSignal: Initialize Diffie-Hellman Ratchet with " + rIdentity.Origin + " using identity"
@@ -424,7 +467,7 @@ func (signal *SignalHandler) haveRatchet(destination string) (*DRatchetState, bo
 }
 
 // Send new private message using the ratchet or start the X3DH protocol in sender side
-func (signal *SignalHandler) sendPrivateRatchet(message, destination string) {
+func (signal *SignalHandler) sendPrivateRatchet(message, destination, identity string) {
 	ratchetState, hasRatchet := signal.haveRatchet(destination)
 	if hasRatchet {
 		var bytes []byte
@@ -437,7 +480,27 @@ func (signal *SignalHandler) sendPrivateRatchet(message, destination string) {
 		signal.latestMessages[destination] = append(signal.latestMessages[destination], gossiper.RumorMessage{ signal.g.Name, uint32(ratchetMessage.Header.N), message })
 		signal.sendWhisperMessage(&SignalPacket{RatchetMessage: &ratchetMessage}, defaultTTL, destination)
 	} else {
-		signal.sStartX3DH(&destination, &message)
+		if identity != "" {
+			decoded, err := hex.DecodeString(identity)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			b := signal.g.DstorageHandler.DStore.RetrieveFile(decoded)
+			rIdentityCompressed := RemoteIdentityCompressed{}
+			e := json.Unmarshal(b, &rIdentityCompressed)
+
+			if e != nil {
+				signal.sStartX3DH(&destination, &message)
+				return
+			}
+
+			identity := UncompressRemoteIdentity(rIdentityCompressed)
+			signal.iStartX3DH(&destination, &message, identity)
+
+		} else {
+			signal.sStartX3DH(&destination, &message)
+		}
 	}
 }
 

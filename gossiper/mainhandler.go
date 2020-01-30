@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mikanikos/DSignal/helpers"
+	"github.com/mikanikos/DSignal/storage"
 )
 
 // FOUND IT MORE USEFUL TO PUT ALL MAIN PROCESSING GOROUTINES IN ONE PLACE
@@ -92,6 +93,14 @@ func (gossiper *Gossiper) processSearchReply() {
 			// if not for me, I forward the reply
 			go gossiper.forwardPrivateMessage(extPacket.Packet, &extPacket.Packet.SearchReply.HopLimit, extPacket.Packet.SearchReply.Destination)
 		}
+	}
+}
+
+func (gossiper *Gossiper) processDStorage() {
+	for extPacket := range PacketChannels["DStorage"] {
+		go func() {
+			gossiper.DstorageHandler.DStore.GetReceiveChannel() <- &storage.MessageAddrPair{Message: extPacket.Packet.DStoreMessage, Address: extPacket.SenderAddr.String()}
+		}()
 	}
 }
 
@@ -212,13 +221,22 @@ func (gossiper *Gossiper) processClientMessages(clientChannel chan *helpers.Mess
 
 			go gossiper.ConnectionHandler.BroadcastToPeers(packet, gossiper.GetPeers())
 
+		case "ratchet":
+			if SignalMode {
+				
+				go func(m *helpers.Message) {
+					SignalChannel <- m
+				}(message)
+
+				continue
+			}
+
 		case "private":
 			if hw2 {
 				printClientMessage(message, gossiper.GetPeers())
 			}
 
 			if SignalMode {
-				//go gossiper.sendPrivateRatchet(message.Text, *message.Destination)
 
 				go func(m *helpers.Message) {
 					SignalChannel <- m
