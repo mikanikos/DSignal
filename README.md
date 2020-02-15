@@ -6,7 +6,7 @@ See [Presentation](./docs/presentation.pdf) for a general overview of the projec
 
 ## Structure
 
-Built on top of Andrea's gossip protocol ():
+Built on top of Andrea's Peerster:
 
 
 - Dewmini was in charge of Decentralized Storage: packages 'storage' and 'secure';
